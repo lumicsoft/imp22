@@ -1,0 +1,4 @@
+<footer class="p-20 text-center border-t border-white/5 relative z-10">
+    <p class="orbitron font-bold text-2xl mb-4 italic">Earn <span class="text-gradient uppercase">BNB</span></p>
+    <p class="text-gray-600 text-[10px] tracking-[1em] uppercase">Decentralized Finance Future © 2026</p>
+</footer>
