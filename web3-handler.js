@@ -1,20 +1,20 @@
 let provider, signer, contract;
 
 // --- CONFIGURATION ---
-const CONTRACT_ADDRESS = "0x34FF4680A9A659C0ef4edF7776648472101205a4"; 
-const USDT_TOKEN_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"; // BSC USDT
-const TESTNET_CHAIN_ID = 56; 
+const CONTRACT_ADDRESS = "0xe3A4e8acDb27e35F37fF3e8d3cCC04F99C4BA034"; 
+const USDT_TOKEN_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; // BSC USDT
+const TESTNET_CHAIN_ID = 97; 
 
 // --- RANK CONFIG (Star1 to Master King) ---
 const RANK_DETAILS = [
     { name: "NONE", roi: "0%", targetTeam: 0, targetVolume: 0 },
-    { name: "Star1", roi: "1.00%", targetTeam: 100, targetVolume: 5000 },
-    { name: "Star2", roi: "2.00%", targetTeam: 200, targetVolume: 10000 },
-    { name: "Star3", roi: "3.00%", targetTeam: 500, targetVolume: 25000 },
-    { name: "Star4", roi: "4.00%", targetTeam: 750, targetVolume: 50000 },
-    { name: "Star5", roi: "5.00%", targetTeam: 1000, targetVolume: 100000 },
-    { name: "Kings Star", roi: "7.00%", targetTeam: 2500, targetVolume: 500000 },
-    { name: "Master King", roi: "7.50%", targetTeam: 2500, targetVolume: 500000 }
+    { name: "Star1", roi: "1.00%", targetTeam: 10, targetVolume: 500 },
+    { name: "Star2", roi: "2.00%", targetTeam: 20, targetVolume: 1000 },
+    { name: "Star3", roi: "3.00%", targetTeam: 50, targetVolume: 2500 },
+    { name: "Star4", roi: "4.00%", targetTeam: 75, targetVolume: 5000 },
+    { name: "Star5", roi: "5.00%", targetTeam: 100, targetVolume: 10000 },
+    { name: "Kings Star", roi: "7.00%", targetTeam: 250, targetVolume: 50000 },
+    { name: "Master King", roi: "7.50%", targetTeam: 250, targetVolume: 50000 }
 ];
 
 // --- ABI (Full Updated for USDT Contract) ---
@@ -89,7 +89,7 @@ window.handleDeposit = async function() {
         // Approve Check
         const allowance = await usdt.allowance(await signer.getAddress(), CONTRACT_ADDRESS);
         if (allowance.lt(amountInWei)) {
-            const txApp = await usdt.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+           const txApp = await usdt.approve(CONTRACT_ADDRESS, amountInWei);
             await txApp.wait();
         }
 
@@ -249,45 +249,108 @@ window.fetchBlockchainHistory = async function(type) {
 // --- DATA FETCHING ---
 async function fetchAllData(address) {
     try {
+        // 1. Contract se saara data fetch karna
         const [user, extra, live] = await Promise.all([
-            contract.users(address), contract.usersExtra(address), contract.getLiveBalance(address)
+            contract.users(address), 
+            contract.usersExtra(address), 
+            contract.getLiveBalance(address)
         ]);
-        updateText('total-deposit-display', format(user.totalDeposited));
+
+        // --- USER PROFILE & ADDRESS ---
+        // Pehle username nahi dikh raha tha, ab yahan se dikhega
+        updateText('username-display', user.username || "USER"); 
+        updateText('user-address', address.substring(0, 6) + "..." + address.substring(38));
+
+        // --- DASHBOARD GRID BOXES ---
+        updateText('total-deposit', format(user.totalDeposited));
         updateText('active-deposit', format(user.totalActiveDeposit));
         updateText('total-earned', format(user.totalEarnings));
         updateText('total-withdrawn', format(user.totalWithdrawn));
-        updateText('team-count', extra.teamCount.toString());
-        updateText('direct-count', extra.directsCount.toString());
         
+        // Naye IDs jo aapne grid mein add kiye hain
+        updateText('level-earning', format(extra.rewardsReferral)); 
+        updateText('rank-earning', format(extra.rewardsRank)); 
+
+        // --- COMPOUND POWER SECTION ---
         const pendingROI = parseFloat(format(live));
         const reserveDaily = parseFloat(format(extra.reserveDailyROI));
-        const networkIncome = parseFloat(format(extra.rewardsReferral)) + parseFloat(format(extra.rewardsRank));
+        const currentProfit = (pendingROI + reserveDaily).toFixed(4);
 
-        updateText('compounding-balance', (pendingROI + reserveDaily).toFixed(4));
-        updateText('ref-balance-display', networkIncome.toFixed(4));
-        updateText('withdrawable-display', (pendingROI + reserveDaily + networkIncome).toFixed(4));
-        
+        // Circle ke andar active capital dikhana
+        updateText('active-deposit-cp', format(user.totalActiveDeposit));
+        // Daily percentage (Dashboard par fix 5-6% dikhaya hai, par calculation 0.7% per cycle hai)
         const activeAmt = parseFloat(format(user.totalActiveDeposit));
         updateText('projected-return', (activeAmt * 0.007).toFixed(4));
+
+        // --- WITHDRAWABLE & CAPITAL SECTION ---
+        const networkIncome = parseFloat(format(extra.rewardsReferral)) + parseFloat(format(extra.rewardsRank));
+        const totalWithdrawable = (pendingROI + reserveDaily + networkIncome).toFixed(4);
         
+        updateText('compounding-balance', currentProfit); // Sirf trading profit
+    
+        updateText('withdrawable', totalWithdrawable);    // Total (Profit + Referral)
+        updateText('cap-balance', format(user.totalActiveDeposit)); // Available Capital
+
+        // --- RANK & STATUS ---
         const rankName = await contract.getRankName(extra.rank);
         updateText('rank-display', rankName);
 
-        const baseUrl = window.location.href.split('index1.html')[0] + "register.html";
-        if(document.getElementById('refURL')) document.getElementById('refURL').value = `${baseUrl}?ref=${user.username}`;
-    } catch (err) { console.error(err); }
+        // Status Auto-Update logic
+        const statusText = document.getElementById('main-status-text');
+        const statusBadge = document.getElementById('status-badge');
+        if (activeAmt > 0) {
+            if(statusText) { statusText.innerText = "ACTIVE"; statusText.className = "text-xs font-black orbitron text-green-500"; }
+            if(statusBadge) { 
+                statusBadge.innerHTML = "● Active Status"; 
+                statusBadge.className = "px-4 py-1 rounded-full bg-green-500/20 text-green-500 text-[10px] font-black border border-green-500/30 uppercase"; 
+            }
+        } else {
+            if(statusText) { statusText.innerText = "INACTIVE"; statusText.className = "text-xs font-black orbitron text-red-500"; }
+        }
+
+        // --- REFERRAL URL ---
+        const baseUrl = window.location.origin + window.location.pathname.replace('index1.html', 'register.html');
+        const refField = document.getElementById('refURL');
+        if(refField) refField.value = `${baseUrl}?ref=${user.username}`;
+
+    } catch (err) { 
+        console.error("Data Sync Error:", err); 
+    }
 }
 
 async function fetchLeadershipData(address) {
     try {
-        const [user, extra] = await Promise.all([contract.users(address), contract.usersExtra(address)]);
-        const rIdx = extra.rank;
-        updateText('rank-display', RANK_DETAILS[rIdx].name);
-        updateText('team-active-deposit', format(user.teamActiveDeposit));
-        // Next rank logic similar to before...
-    } catch (err) { }
-}
+        // 1. Contract se dono mapping ka data fetch karna
+        const [user, extra] = await Promise.all([
+            contract.users(address), 
+            contract.usersExtra(address)
+        ]);
 
+        // 2. Simple Numbers mein convert karna
+        const teamActiveVol = parseFloat(ethers.utils.formatUnits(user.teamActiveDeposit, 18));
+        const teamTotalVol = parseFloat(ethers.utils.formatUnits(user.teamTotalDeposit, 18));
+        const rankRewards = parseFloat(ethers.utils.formatUnits(extra.rewardsRank, 18));
+        const teamCount = extra.teamCount; // Ye missing tha
+        const directsQuali = extra.directsQuali;
+
+        // 3. UI Elements ko update karna (Jo aapne HTML mein IDs di hain)
+        updateText('team-active-deposit', teamActiveVol.toFixed(2));
+        updateText('team-total-deposit', teamTotalVol.toFixed(2));
+        updateText('rank-reward-available', rankRewards.toFixed(2));
+        updateText('current-team-count', teamCount);
+        updateText('directs-quali', directsQuali);
+        updateText('current-team-volume', teamActiveVol.toFixed(0));
+
+        // 4. Sabse Zaruri: Rank Progress Bar aur Next Target update karna
+        // Ye function aapne HTML page ke script tag mein likha hai
+        if (typeof updateRankUI === "function") {
+            updateRankUI(extra, teamActiveVol);
+        }
+
+    } catch (err) { 
+        console.error("Leadership Data Error:", err); 
+    }
+}
 function start8HourCountdown() {
     const timerElement = document.getElementById('next-timer');
     if (!timerElement) return;
@@ -305,13 +368,29 @@ function start8HourCountdown() {
 
 // --- UTILS ---
 const format = (val) => {
-    try { return parseFloat(ethers.utils.formatUnits(val, 18)).toFixed(4); }
-    catch { return "0.0000"; }
+    try { return parseFloat(ethers.utils.formatUnits(val, 18)).toFixed(2); }
+    catch { return "0.00"; }
 };
-const updateText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+
+
+const updateText = (id, val) => { 
+    const elements = document.querySelectorAll(`[id="${id}"]`); 
+    if(elements.length > 0) {
+        elements.forEach(el => {
+            el.innerText = val; 
+        });
+    }
+};
+
 function updateNavbar(addr) {
     const btn = document.getElementById('connect-btn');
     if(btn) btn.innerText = addr.substring(0,6) + "..." + addr.substring(38);
 }
 
 window.addEventListener('load', init);
+
+
+
+
+
+
