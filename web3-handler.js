@@ -208,44 +208,77 @@ async function setupApp(address) {
 }
 
 // --- HISTORY LOGIC ---
-window.showHistory = async function(type) {
+window.showHistory = async function(category) {
     const container = document.getElementById('history-container');
     if(!container) return;
-    container.innerHTML = `<div class="p-10 text-center text-yellow-500 italic">Syncing...</div>`;
-    const logs = await window.fetchBlockchainHistory(type);
+    
+    // UI Feedback: Loading state
+    container.innerHTML = `<div class="p-10 text-center text-yellow-500 italic animate-pulse">Fetching ${category.toUpperCase()} Records...</div>`;
+    
+    // Category mapping: Kaunsa button dabane par kya dikhna chahiye
+    const typeMap = {
+        'deposit': ['DEPOSIT'],
+        'compounding': ['REINVEST'],
+        'withdrawal': ['WITHDRAW', 'PRINCIPAL_WITHDRAW'],
+        'income': ['ROI_INCOME', 'LEVEL_INCOME', 'RANK_INCOME']
+    };
+
+    const allowedTypes = typeMap[category] || [];
+    const logs = await window.fetchBlockchainHistory(allowedTypes);
+
     if (logs.length === 0) {
-        container.innerHTML = `<div class="p-10 text-center text-gray-500">No data.</div>`;
+        container.innerHTML = `<div class="p-10 text-center text-gray-500">No ${category} records found.</div>`;
         return;
     }
+
     container.innerHTML = logs.map(item => `
-        <div class="bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 flex justify-between items-center">
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 flex justify-between items-center hover:bg-white/10 transition-all">
             <div>
-                <h4 class="font-bold ${item.color}">${item.type}</h4>
-                <p class="text-xs text-gray-400">${item.date} | ${item.time}</p>
+                <h4 class="font-bold ${item.color}">${item.type.replace('_', ' ')}</h4>
+                <p class="text-[10px] text-gray-400 uppercase tracking-widest">${item.detail}</p>
+                <p class="text-[10px] text-gray-500 mt-1">${item.date} | ${item.time}</p>
             </div>
             <div class="text-right">
                 <span class="text-lg font-black text-white">${item.amount}</span>
+                <p class="text-[10px] text-gray-500 font-bold">USDT</p>
             </div>
         </div>
     `).join('');
 }
 
-window.fetchBlockchainHistory = async function(type) {
+window.fetchBlockchainHistory = async function(allowedTypes) {
     try {
         const address = await signer.getAddress();
         const rawHistory = await contract.getUserHistory(address);
-        return rawHistory.map(item => {
-            const txType = item.txType.toUpperCase();
-            const dt = new Date(item.timestamp.toNumber() * 1000);
-            return {
-                type: txType, amount: format(item.amount), date: dt.toLocaleDateString(),
-                time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                ts: item.timestamp.toNumber(), color: 'text-cyan-400'
-            };
-        }).sort((a,b) => b.ts - a.ts);
-    } catch (e) { return []; }
-}
+        
+        // Blockchain se aayi array ko filter aur format karna
+        return rawHistory
+            .filter(item => allowedTypes.includes(item.txType.toUpperCase())) // Sirf wahi dikhao jo manga hai
+            .map(item => {
+                const txType = item.txType.toUpperCase();
+                const dt = new Date(item.timestamp.toNumber() * 1000);
+                
+                // Income ke liye alag color, baaki ke liye cyan
+                let colorClass = 'text-cyan-400';
+                if(txType.includes('INCOME')) colorClass = 'text-green-400';
+                if(txType.includes('WITHDRAW')) colorClass = 'text-red-400';
 
+                return {
+                    type: txType,
+                    amount: format(item.amount),
+                    detail: item.detail,
+                    date: dt.toLocaleDateString(),
+                    time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    ts: item.timestamp.toNumber(),
+                    color: colorClass
+                };
+            })
+            .sort((a,b) => b.ts - a.ts); // Newest transactions first
+    } catch (e) { 
+        console.error("History Fetch Error:", e);
+        return []; 
+    }
+}
 // --- DATA FETCHING ---
 async function fetchAllData(address) {
     try {
@@ -388,6 +421,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
