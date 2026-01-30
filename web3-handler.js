@@ -133,22 +133,41 @@ window.handleCapitalWithdraw = async function() {
 window.handleLogin = async function() {
     try {
         if (!window.ethereum) return alert("Please install MetaMask!");
-        const accounts = await provider.send("eth_requestAccounts", []);
+
+        // 1. Refresh Provider (Mobile fix: Har baar naya provider initialize karein)
+        const tempProvider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // 2. Force Wallet Popup (eth_requestAccounts use karein)
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
         if (accounts.length === 0) return;
+        
         const userAddress = accounts[0]; 
-        signer = provider.getSigner();
-        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        const tempSigner = tempProvider.getSigner();
+        const tempContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
+
+        // Global variables update karein (jo aapke purane code mein the)
+        provider = tempProvider;
+        signer = tempSigner;
+        contract = tempContract;
+
         localStorage.removeItem('manualLogout');
+        
         const userData = await contract.users(userAddress);
 
         if (userData.registered === true) {
+            // Address ko local storage mein save karein dashboard ke liye
+            localStorage.setItem('userAddress', userAddress);
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
             window.location.href = "index1.html";
         } else {
             alert("Not registered!");
             window.location.href = "register.html";
         }
-    } catch (err) { alert("Login failed!"); }
+    } catch (err) { 
+        console.error(err);
+        alert("Login failed! Please check if your wallet is unlocked."); 
+    }
 }
 
 window.handleRegister = async function() {
@@ -421,6 +440,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
