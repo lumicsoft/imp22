@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (isAuthPage) return;
 
     // 2. Fast UI Injection (Bina wait kiye)
+   // 2. Fast UI Injection (Desktop Nav updated with Logout)
     const navHTML = `
         <nav class="fixed top-0 left-0 w-full z-[100] bg-black/40 backdrop-blur-md border-b border-white/5">
             <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
@@ -25,16 +26,18 @@ document.addEventListener("DOMContentLoaded", function () {
                     <button onclick="location.href='history.html'" class="px-4 py-2 rounded-lg text-[11px] font-bold orbitron uppercase transition-all ${path.includes('history.html') ? 'bg-yellow-500 text-black' : 'text-gray-400 hover:text-white'}">History</button>
                 </div>
                 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
                     <button id="connect-btn" onclick="handleLogin()" class="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold orbitron hover:bg-white/10 transition-all text-white">
                         CONNECT
+                    </button>
+                    <button onclick="handleLogout()" class="w-9 h-9 flex items-center justify-center bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
         </nav>
         <div class="h-20"></div>
     `;
-
     const mobileNavHTML = `
         <div class="fixed bottom-6 left-4 right-4 md:hidden z-[10000]">
             <div class="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-2xl flex justify-around items-center p-3 shadow-2xl">
