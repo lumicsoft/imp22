@@ -189,7 +189,7 @@ window.handleLogout = function() {
         localStorage.setItem('manualLogout', 'true');
         
         // 3. Login page par bhej dein
-        window.location.href = "login.html"; 
+        window.location.href = "index.html"; 
     }
 }
 
@@ -444,6 +444,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
