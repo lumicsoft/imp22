@@ -134,10 +134,7 @@ window.handleLogin = async function() {
     try {
         if (!window.ethereum) return alert("Please install MetaMask!");
 
-        // 1. Refresh Provider (Mobile fix: Har baar naya provider initialize karein)
         const tempProvider = new ethers.providers.Web3Provider(window.ethereum);
-        
-        // 2. Force Wallet Popup (eth_requestAccounts use karein)
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         
         if (accounts.length === 0) return;
@@ -146,20 +143,23 @@ window.handleLogin = async function() {
         const tempSigner = tempProvider.getSigner();
         const tempContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
 
-        // Global variables update karein (jo aapke purane code mein the)
         provider = tempProvider;
         signer = tempSigner;
         contract = tempContract;
 
         localStorage.removeItem('manualLogout');
-        
         const userData = await contract.users(userAddress);
 
         if (userData.registered === true) {
-            // Address ko local storage mein save karein dashboard ke liye
             localStorage.setItem('userAddress', userAddress);
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
+            
+            // --- FIX START ---
+            // Redirect se pehle page refresh karke redirect karein taaki session lock na ho
             window.location.href = "index1.html";
+            setTimeout(() => { window.location.reload(); }, 100); 
+            // --- FIX END ---
+            
         } else {
             alert("Not registered!");
             window.location.href = "register.html";
@@ -169,7 +169,6 @@ window.handleLogin = async function() {
         alert("Login failed! Please check if your wallet is unlocked."); 
     }
 }
-
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
@@ -181,11 +180,16 @@ window.handleRegister = async function() {
         window.location.href = "index1.html";
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
-
 window.handleLogout = function() {
-    if (confirm("Disconnect?")) {
+    if (confirm("Disconnect and Logout?")) {
+        // 1. Saara local storage saaf karein (Sabse zaroori fix)
+        localStorage.clear(); 
+        
+        // 2. Manual logout flag set karein (taaki auto-login na ho)
         localStorage.setItem('manualLogout', 'true');
-        window.location.href = "index.html";
+        
+        // 3. Login page par bhej dein
+        window.location.href = "login.html"; 
     }
 }
 
@@ -440,6 +444,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
