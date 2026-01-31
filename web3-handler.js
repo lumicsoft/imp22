@@ -302,7 +302,6 @@ window.fetchBlockchainHistory = async function(allowedTypes) {
         return []; 
     }
 }
-// --- DATA FETCHING ---
 async function fetchAllData(address) {
     try {
         // 1. Contract se saara data fetch karna
@@ -313,7 +312,6 @@ async function fetchAllData(address) {
         ]);
 
         // --- USER PROFILE & ADDRESS ---
-        // Pehle username nahi dikh raha tha, ab yahan se dikhega
         updateText('username-display', user.username || "USER"); 
         updateText('user-address', address.substring(0, 6) + "..." + address.substring(38));
 
@@ -323,27 +321,30 @@ async function fetchAllData(address) {
         updateText('total-earned', format(user.totalEarnings));
         updateText('total-withdrawn', format(user.totalWithdrawn));
         
-        // Naye IDs jo aapne grid mein add kiye hain
+        // Referral aur Rank Income
         updateText('level-earning', format(extra.rewardsReferral)); 
         updateText('rank-earning', format(extra.rewardsRank)); 
 
-        // --- COMPOUND POWER SECTION ---
+        // --- COMPOUND POWER SECTION (Logic Cleaned) ---
         const pendingROI = parseFloat(format(live));
         const reserveDaily = parseFloat(format(extra.reserveDailyROI));
-        const currentProfit = (pendingROI + reserveDaily).toFixed(4);
+        
+        // Yeh hai aapka pure trading profit
+        const currentProfit = (pendingROI + reserveDaily).toFixed(2);
 
         // Circle ke andar active capital dikhana
         updateText('active-deposit-cp', format(user.totalActiveDeposit));
-        // Daily percentage (Dashboard par fix 5-6% dikhaya hai, par calculation 0.7% per cycle hai)
+        
+        // Daily percentage projection (0.7%)
         const activeAmt = parseFloat(format(user.totalActiveDeposit));
-        updateText('projected-return', (activeAmt * 0.007).toFixed(4));
+        updateText('projected-return', (activeAmt * 0.007).toFixed(2));
 
         // --- WITHDRAWABLE & CAPITAL SECTION ---
+        // YAHAN FIX HAI: Isse 2x multiplier nahi hoga
         const networkIncome = parseFloat(format(extra.rewardsReferral)) + parseFloat(format(extra.rewardsRank));
-        const totalWithdrawable = (pendingROI + reserveDaily + networkIncome).toFixed(4);
+        const totalWithdrawable = (pendingROI + reserveDaily + networkIncome).toFixed(2);
         
         updateText('compounding-balance', currentProfit); // Sirf trading profit
-    
         updateText('withdrawable', totalWithdrawable);    // Total (Profit + Referral)
         updateText('cap-balance', format(user.totalActiveDeposit)); // Available Capital
 
@@ -354,17 +355,28 @@ async function fetchAllData(address) {
         // Status Auto-Update logic
         const statusText = document.getElementById('main-status-text');
         const statusBadge = document.getElementById('status-badge');
+        
         if (activeAmt > 0) {
-            if(statusText) { statusText.innerText = "ACTIVE"; statusText.className = "text-xs font-black orbitron text-green-500"; }
+            if(statusText) { 
+                statusText.innerText = "ACTIVE"; 
+                statusText.className = "text-xs font-black orbitron text-green-500"; 
+            }
             if(statusBadge) { 
                 statusBadge.innerHTML = "● Active Status"; 
                 statusBadge.className = "px-4 py-1 rounded-full bg-green-500/20 text-green-500 text-[10px] font-black border border-green-500/30 uppercase"; 
             }
         } else {
-            if(statusText) { statusText.innerText = "INACTIVE"; statusText.className = "text-xs font-black orbitron text-red-500"; }
+            if(statusText) { 
+                statusText.innerText = "INACTIVE"; 
+                statusText.className = "text-xs font-black orbitron text-red-500"; 
+            }
+            if(statusBadge) {
+                statusBadge.innerHTML = "● Inactive";
+                statusBadge.className = "px-4 py-1 rounded-full bg-red-500/20 text-red-500 text-[10px] font-black border border-red-500/30 uppercase";
+            }
         }
 
-        // --- REFERRAL URL ---
+        // --- REFERRAL URL (Auto-Generated) ---
         const baseUrl = window.location.origin + window.location.pathname.replace('index1.html', 'register.html');
         const refField = document.getElementById('refURL');
         if(refField) refField.value = `${baseUrl}?ref=${user.username}`;
@@ -373,7 +385,6 @@ async function fetchAllData(address) {
         console.error("Data Sync Error:", err); 
     }
 }
-
 async function fetchLeadershipData(address) {
     try {
         // 1. Contract se dono mapping ka data fetch karna
@@ -444,6 +455,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
