@@ -10,13 +10,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
-        /* Specific Styles for Deposit Cards */
         .status-badge { background: rgba(34, 197, 94, 0.1); color: #22c55e; padding: 4px 10px; border-radius: 8px; font-size: 9px; font-weight: 800; border: 1px solid rgba(34, 197, 94, 0.3); }
         .progress-container { background: rgba(255,255,255,0.05); height: 6px; border-radius: 10px; overflow: hidden; margin-top: 10px; }
         .progress-bar-node { background: linear-gradient(90deg, #FFD700, #B8860B); height: 100%; box-shadow: 0 0 10px rgba(184, 134, 11, 0.5); transition: width 1s ease-in-out; }
         .amount-text { font-size: 22px; font-weight: 800; color: #ffffff !important; }
+        .chart-container { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; padding: 20px; margin-bottom: 30px; }
     </style>
 </head>
 <body class="p-4 md:p-10">
@@ -35,6 +36,11 @@
             <button onclick="loadActiveDeposits()" class="bg-white/5 border border-white/10 p-3 rounded-xl hover:bg-white/10 transition-all group">
                 <i data-lucide="refresh-cw" class="w-5 h-5 text-yellow-500 group-hover:rotate-180 transition-transform duration-500"></i>
             </button>
+        </div>
+
+        <div class="chart-container">
+            <p class="orbitron text-[10px] text-yellow-500 mb-4 uppercase tracking-widest">Earnings Projection (21 Days)</p>
+            <canvas id="performanceChart" height="100"></canvas>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -72,6 +78,40 @@
     <script>
         const DAILY_ROI = 0.7; 
         const DURATION_DAYS = 21;
+        let myChart = null;
+
+        function updateChart(totalActive) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            const labels = Array.from({length: 22}, (_, i) => `Day ${i}`);
+            const data = labels.map((_, i) => (totalActive * (1 + (DAILY_ROI/100) * i)).toFixed(2));
+
+            if(myChart) myChart.destroy();
+            
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Projected Balance',
+                        data: data,
+                        borderColor: '#FFD700',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#555', font: { size: 9 } } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#555', font: { size: 9 } } }
+                    }
+                }
+            });
+        }
 
         async function loadActiveDeposits() {
             const grid = document.getElementById('deposits-grid');
@@ -85,20 +125,25 @@
                 document.getElementById('total-active-capital').innerText = totalActive.toLocaleString(undefined, {minimumFractionDigits: 2});
                 document.getElementById('total-daily-profit').innerText = (totalActive * (DAILY_ROI / 100)).toLocaleString(undefined, {minimumFractionDigits: 2});
 
-                if (totalActive <= 0) {
-                    grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-600 orbitron text-[10px] border border-dashed border-white/10 rounded-3xl uppercase tracking-widest">No Active Mining Nodes Found</div>`;
-                    return;
-                }
+                updateChart(totalActive);
 
                 let html = '';
-                // Looping through possible positions
+                let foundAny = false;
+
+                // Loop fixed: Don't break on 0, just continue to find latest deposits
                 for (let i = 0; i < 50; i++) {
                     try {
                         const pos = await window.contract.getPosition(address, i);
                         const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
-                        if (amount === 0) break;
+                        
+                        // If amount is 0, this index is empty, but don't break, check others
+                        if (amount === 0) {
+                            if (i > 5) break; // Optimization: stop if many consecutive are 0
+                            continue;
+                        }
 
                         if (pos.active) {
+                            foundAny = true;
                             const startTime = parseInt(pos.startTime);
                             const currentTime = Math.floor(Date.now() / 1000);
                             const durationSeconds = DURATION_DAYS * 24 * 60 * 60;
@@ -125,8 +170,8 @@
                                             <p class="text-xs font-bold text-green-400">$${(amount * (DAILY_ROI/100)).toFixed(2)}</p>
                                         </div>
                                         <div class="bg-black/40 p-3 rounded-xl border border-white/5">
-                                            <p class="text-[8px] text-gray-500 font-bold uppercase mb-1">Source</p>
-                                            <p class="text-xs font-bold text-yellow-500">${pos.source == 1 ? 'REINVEST' : 'DIRECT'}</p>
+                                            <p class="text-[8px] text-gray-500 font-bold uppercase mb-1">Status</p>
+                                            <p class="text-xs font-bold text-yellow-500">ACTIVE</p>
                                         </div>
                                     </div>
 
@@ -145,7 +190,8 @@
                         }
                     } catch (e) { break; }
                 }
-                grid.innerHTML = html || `<div class="col-span-full text-center py-20 text-gray-600 uppercase text-[10px]">No active positions found</div>`;
+                
+                grid.innerHTML = foundAny ? html : `<div class="col-span-full text-center py-20 text-gray-600 uppercase text-[10px] border border-dashed border-white/10 rounded-3xl">No Active Mining Nodes Found</div>`;
                 lucide.createIcons();
             } catch (err) {
                 console.error(err);
