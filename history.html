@@ -70,21 +70,35 @@
     <script src="components.js"></script>
     <script src="web3-handler.js"></script>
     <script>
+   <script>
     async function showHistory(category) {
         const container = document.getElementById('history-container');
         const buttons = document.querySelectorAll('.filter-btn');
         
-        // 1. UI Buttons Update
         buttons.forEach(btn => btn.classList.remove('active'));
         const activeBtn = document.getElementById('btn-' + category);
         if(activeBtn) activeBtn.classList.add('active');
 
-        // 2. Loading State
         container.innerHTML = `<div class="text-center py-20"><p class="orbitron text-[10px] text-gray-600 animate-pulse uppercase tracking-widest">Accessing Blockchain...</p></div>`;
 
         try {
-            // 3. Web3 Handler se seedha filtered data mangao
-            // Hamne typeMap handler mein pehle hi set kar diya hai
+            // --- TRUST WALLET FIX: Signer check ---
+            // Agar window.signer nahi hai, toh check karein window.ethereum hai ya nahi
+            let activeSigner = window.signer;
+            if (!activeSigner && window.ethereum) {
+                const tempProvider = new ethers.providers.Web3Provider(window.ethereum);
+                const accounts = await tempProvider.listAccounts();
+                if (accounts.length > 0) {
+                    activeSigner = tempProvider.getSigner();
+                }
+            }
+
+            if (!activeSigner) {
+                // Agar abhi bhi nahi hai, toh 1 second baad phir try karein
+                setTimeout(() => showHistory(category), 1000);
+                return;
+            }
+
             const typeMapForBackend = {
                 'deposit': ['DEPOSIT'],
                 'compounding': ['REINVEST'],
@@ -92,6 +106,7 @@
                 'income': ['ROI_INCOME', 'LEVEL_INCOME', 'RANK_INCOME']
             };
 
+            // Signer ko fetch function mein pass karein agar zaroorat ho (web3-handler.js ke hisab se)
             const logs = await window.fetchBlockchainHistory(typeMapForBackend[category]);
 
             if(!logs || logs.length === 0) {
@@ -99,7 +114,6 @@
                 return;
             }
 
-            // 4. HTML Generate Karo
             let html = '';
             logs.forEach(item => {
                 const isPositive = !item.type.includes('WITHDRAW');
@@ -129,34 +143,36 @@
             });
 
             container.innerHTML = html;
-            lucide.createIcons(); // Icons refresh karne ke liye
+            lucide.createIcons();
 
         } catch (err) {
-            console.error(err);
-            container.innerHTML = `<div class="text-center py-20 text-red-500 orbitron text-[10px]">WEB3 ERROR: DATA NOT FOUND</div>`;
+            console.error("History Error:", err);
+            container.innerHTML = `<div class="text-center py-20 text-red-500 orbitron text-[10px]">WEB3 ERROR: RETRYING...</div>`;
+            setTimeout(() => showHistory(category), 2000);
         }
     }
 
     function getIcon(category) {
-        const map = { 
-            'deposit': 'arrow-down-left', 
-            'compounding': 'refresh-cw', 
-            'income': 'trending-up', 
-            'withdrawal': 'external-link' 
-        };
+        const map = { 'deposit': 'arrow-down-left', 'compounding': 'refresh-cw', 'income': 'trending-up', 'withdrawal': 'external-link' };
         return map[category] || 'circle';
     }
 
-    // Auto-init on load
+    // Auto-init on load with better Trust Wallet detection
     window.addEventListener('load', () => {
+        let retryCount = 0;
         const checkInit = setInterval(() => {
-            if (window.contract && window.fetchBlockchainHistory) {
+            retryCount++;
+            // Check if contract is ready
+            if (window.contract) {
                 showHistory('deposit');
                 clearInterval(checkInit);
             }
+            // 5 second baad agar nahi hota toh manual call
+            if (retryCount > 10) clearInterval(checkInit);
         }, 500);
     });
 </script>
 </body>
 
 </html>
+
