@@ -53,24 +53,53 @@ function checkReferralURL() {
 // --- INITIALIZATION ---
 async function init() {
     checkReferralURL();
+    
     if (window.ethereum) {
         try {
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            const accounts = await provider.listAccounts();
-            window.signer = provider.getSigner();
-            signer = window.signer;
-            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-            contract = window.contract;
-
+            // "any" likhne se network change hone par Trust Wallet crash nahi hota
+            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            
+            // Accounts fetch karne ka zyada reliable tarika (Trust Wallet fix)
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            
             if (accounts.length > 0) {
+                const address = accounts[0];
+                
+                // Signer aur Contract ko globally set karein
+                signer = provider.getSigner();
+                window.signer = signer;
+                
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                window.contract = contract;
+
+                // Agar user ne logout nahi kiya hai, toh app setup karein
                 if (localStorage.getItem('manualLogout') !== 'true') {
-                    await setupApp(accounts[0]);
+                    await setupApp(address);
                 } else {
-                    updateNavbar(accounts[0]);
+                    updateNavbar(address);
                 }
             }
-        } catch (error) { console.error("Init Error", error); }
-    } else { alert("Please install MetaMask!"); }
+
+            // --- EK ZAROORI FIX ---
+            // Jab user Trust Wallet mein network badle (Testnet se Mainnet ya ulta), toh page auto-refresh ho jaye
+            window.ethereum.on('chainChanged', () => {
+                window.location.reload();
+            });
+
+            window.ethereum.on('accountsChanged', (newAccounts) => {
+                if (newAccounts.length === 0) {
+                    localStorage.setItem('manualLogout', 'true');
+                }
+                window.location.reload();
+            });
+
+        } catch (error) { 
+            console.error("Init Error:", error); 
+        }
+    } else { 
+        // Mobile users ke liye baar-baar alert pareshan karta hai, isliye console.log
+        console.log("Web3 Provider not found. Please use Trust Wallet or MetaMask."); 
+    }
 }
 
 // --- CORE LOGIC ---
@@ -132,41 +161,52 @@ window.handleCapitalWithdraw = async function() {
 
 window.handleLogin = async function() {
     try {
-        if (!window.ethereum) return alert("Please install MetaMask!");
+        if (!window.ethereum) return alert("Please install Trust Wallet or MetaMask!");
 
-        const tempProvider = new ethers.providers.Web3Provider(window.ethereum);
+        // 1. Connection Request
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        
         if (accounts.length === 0) return;
-        
         const userAddress = accounts[0]; 
+
+        // 2. Fresh Provider aur Contract setup (Trust Wallet ke liye zaroori)
+        const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+        const { chainId } = await tempProvider.getNetwork();
+
+        // Check if on BSC Testnet (97)
+        if (chainId !== TESTNET_CHAIN_ID) {
+            alert("Please switch your wallet to BSC Testnet (Chain 97)!");
+            return;
+        }
+
         const tempSigner = tempProvider.getSigner();
         const tempContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
 
+        // Global variables ko update karein taaki logout na dikhaye
         provider = tempProvider;
         signer = tempSigner;
         contract = tempContract;
 
-        localStorage.removeItem('manualLogout');
+        // 3. Registeration Check
         const userData = await contract.users(userAddress);
 
         if (userData.registered === true) {
+            // LocalStorage updates
             localStorage.setItem('userAddress', userAddress);
+            localStorage.removeItem('manualLogout');
+            
+            // UI Update (Optional but good)
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
             
-            // --- FIX START ---
-            // Redirect se pehle page refresh karke redirect karein taaki session lock na ho
+            // 4. Smooth Redirect
+            // Refresh ka jhanjhat khatam, seedha dashboard par bhejein
             window.location.href = "index1.html";
-            setTimeout(() => { window.location.reload(); }, 100); 
-            // --- FIX END ---
-            
         } else {
-            alert("Not registered!");
+            alert("Aap registered nahi hain! Redirecting to Registration...");
             window.location.href = "register.html";
         }
     } catch (err) { 
-        console.error(err);
-        alert("Login failed! Please check if your wallet is unlocked."); 
+        console.error("Login Error:", err);
+        alert("Login failed! Make sure your wallet is connected to BSC Testnet."); 
     }
 }
 window.handleRegister = async function() {
@@ -477,6 +517,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
