@@ -383,11 +383,20 @@ window.fetchBlockchainHistory = async function(allowedTypes) {
 }
 async function fetchAllData(address) {
     try {
-        // 1. Contract se data fetch karna
+        // --- TRUST WALLET CONNECTION FIX ---
+        // Agar main 'contract' object khali hai, toh read-only use karein
+        const activeContract = window.contract || contract;
+        
+        if (!activeContract) {
+            console.error("Contract not ready yet!");
+            return;
+        }
+
+        // 1. Contract se data fetch karna (SAME LOGIC)
         const [user, extra, live] = await Promise.all([
-            contract.users(address), 
-            contract.usersExtra(address), 
-            contract.getLiveBalance(address)
+            activeContract.users(address), 
+            activeContract.usersExtra(address), 
+            activeContract.getLiveBalance(address)
         ]);
 
         // --- DASHBOARD BASIC DATA ---
@@ -403,12 +412,10 @@ async function fetchAllData(address) {
         updateText('rank-earning', format(extra.rewardsRank)); 
 
         // --- THE ULTIMATE FIX ---
-        // Contract ka 'live' balance hi ROI + Referral + Rank ka total hai.
-        // Isme extra kuch bhi PLUS (+) nahi karna hai.
         const totalWithdrawable = parseFloat(format(live));
         const activeAmt = parseFloat(format(user.totalActiveDeposit));
 
-        // UI Updates - Direct live value use kar rahe hain
+        // UI Updates - Direct live value use (SAME LOGIC)
         updateText('withdrawable', totalWithdrawable.toFixed(2));    
         updateText('compounding-balance', totalWithdrawable.toFixed(2));
         updateText('cap-balance', format(user.totalActiveDeposit));
@@ -418,7 +425,8 @@ async function fetchAllData(address) {
         updateText('projected-return', (activeAmt * 0.007).toFixed(2));
 
         // --- RANK & STATUS ---
-        const rankName = await contract.getRankName(extra.rank);
+        // getRankName ko bhi activeContract se call kar rahe hain (Fix for Trust Wallet)
+        const rankName = await activeContract.getRankName(extra.rank);
         updateText('rank-display', rankName);
 
         const statusText = document.getElementById('main-status-text');
@@ -517,6 +525,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
