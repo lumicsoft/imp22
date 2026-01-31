@@ -304,6 +304,7 @@ window.fetchBlockchainHistory = async function(allowedTypes) {
 }
 async function fetchAllData(address) {
     try {
+        // 1. Contract se data fetch karna
         const [user, extra, live] = await Promise.all([
             contract.users(address), 
             contract.usersExtra(address), 
@@ -318,28 +319,23 @@ async function fetchAllData(address) {
         updateText('total-earned', format(user.totalEarnings));
         updateText('total-withdrawn', format(user.totalWithdrawn));
         
-        // Income breakdown (Sirf display ke liye)
+        // Income breakdown display
         updateText('level-earning', format(extra.rewardsReferral)); 
         updateText('rank-earning', format(extra.rewardsRank)); 
 
-        // --- THE FIX FOR DOUBLE BALANCE ---
-        // Contract ka 'live' balance hi asali Withdrawable balance hai.
-        // Ise manually networkIncome ke saath plus NAHI karna hai.
-        const contractLiveBalance = parseFloat(format(live));
-        const reserveDaily = parseFloat(format(extra.reserveDailyROI));
-        
-        // Final Display Calculations
-        const finalWithdrawable = (contractLiveBalance + reserveDaily).toFixed(2);
-        const tradingProfitOnly = (contractLiveBalance + reserveDaily).toFixed(2);
+        // --- THE ULTIMATE FIX ---
+        // Contract ka 'live' balance hi ROI + Referral + Rank ka total hai.
+        // Isme extra kuch bhi PLUS (+) nahi karna hai.
+        const totalWithdrawable = parseFloat(format(live));
+        const activeAmt = parseFloat(format(user.totalActiveDeposit));
 
-        // UI Updates
-        updateText('withdrawable', finalWithdrawable);    
-        updateText('compounding-balance', tradingProfitOnly);
+        // UI Updates - Direct live value use kar rahe hain
+        updateText('withdrawable', totalWithdrawable.toFixed(2));    
+        updateText('compounding-balance', totalWithdrawable.toFixed(2));
         updateText('cap-balance', format(user.totalActiveDeposit));
         updateText('active-deposit-cp', format(user.totalActiveDeposit));
 
-        // Daily ROI Projection
-        const activeAmt = parseFloat(format(user.totalActiveDeposit));
+        // Daily ROI Projection (0.7%)
         updateText('projected-return', (activeAmt * 0.007).toFixed(2));
 
         // --- RANK & STATUS ---
@@ -442,6 +438,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
