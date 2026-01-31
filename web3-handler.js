@@ -121,29 +121,59 @@ async function setupReadOnly(rpcUrl) {
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
-    if (!amountInput || !amountInput.value || amountInput.value < 10) return alert("Min 10 USDT required!");
     
-    const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
-    const usdt = new ethers.Contract(USDT_TOKEN_ADDRESS, ERC20_ABI, signer);
+    if (!amountInput || !amountInput.value || amountInput.value < 10) {
+        return alert("Min 10 USDT required!");
+    }
 
     try {
+        // --- MULTI-MODE CHECK (Fix for "Cannot read property") ---
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        // Agar signer nahi hai (RPC mode), toh wallet connect karwao
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            // Global variables bhi update kar dein taaki aage problem na aaye
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
         depositBtn.disabled = true;
         depositBtn.innerText = "APPROVING...";
+
+        const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
+        const userAddress = await activeSigner.getAddress();
         
-        // Approve Check
-        const allowance = await usdt.allowance(await signer.getAddress(), CONTRACT_ADDRESS);
+        // USDT Contract with Active Signer
+        const usdt = new ethers.Contract(USDT_TOKEN_ADDRESS, ERC20_ABI, activeSigner);
+
+        // 1. Approve Check
+        const allowance = await usdt.allowance(userAddress, CONTRACT_ADDRESS);
         if (allowance.lt(amountInWei)) {
-           const txApp = await usdt.approve(CONTRACT_ADDRESS, amountInWei);
+            const txApp = await usdt.approve(CONTRACT_ADDRESS, amountInWei);
             await txApp.wait();
         }
 
+        // 2. Deposit
         depositBtn.innerText = "SIGNING...";
-        const tx = await contract.deposit(amountInWei);
+        const tx = await activeContract.deposit(amountInWei);
+        
         depositBtn.innerText = "DEPOSITING...";
         await tx.wait();
+        
+        alert("Deposit Successful!");
         location.reload(); 
+
     } catch (err) {
-        alert("Error: " + (err.reason || err.message));
+        console.error("Deposit Error:", err);
+        alert("Error: " + (err.reason || err.message || "Transaction Failed"));
         depositBtn.innerText = "DEPOSIT NOW";
         depositBtn.disabled = false;
     }
@@ -549,6 +579,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
