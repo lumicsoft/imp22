@@ -54,51 +54,66 @@ function checkReferralURL() {
 async function init() {
     checkReferralURL();
     
-    if (window.ethereum) {
-        try {
-            // "any" likhne se network change hone par Trust Wallet crash nahi hota
+    // BSC Testnet ka Public RPC (Trust Wallet fallback ke liye)
+    const bscTestnetRPC = "https://data-seed-prebsc-1-s1.binance.org:8545/";
+
+    try {
+        // Trust Wallet/MetaMask ko detect hone ke liye thoda time dena zaroori hai
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        if (window.ethereum) {
+            // "any" network use karne se Trust Wallet switch hone par crash nahi hota
             provider = new ethers.providers.Web3Provider(window.ethereum, "any");
             
-            // Accounts fetch karne ka zyada reliable tarika (Trust Wallet fix)
+            // Reliable way to check accounts
             const accounts = await window.ethereum.request({ method: 'eth_accounts' });
             
             if (accounts.length > 0) {
                 const address = accounts[0];
-                
-                // Signer aur Contract ko globally set karein
                 signer = provider.getSigner();
-                window.signer = signer;
                 
-                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-                window.contract = contract;
-
-                // Agar user ne logout nahi kiya hai, toh app setup karein
-                if (localStorage.getItem('manualLogout') !== 'true') {
-                    await setupApp(address);
-                } else {
-                    updateNavbar(address);
-                }
+                // Global variables set karein
+                window.signer = signer;
+                window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                contract = window.contract;
+                
+                await setupApp(address);
+            } else {
+                // Wallet connected nahi hai, Read-only mode chalao
+                await setupReadOnly(bscTestnetRPC);
             }
 
-            // --- EK ZAROORI FIX ---
-            // Jab user Trust Wallet mein network badle (Testnet se Mainnet ya ulta), toh page auto-refresh ho jaye
-            window.ethereum.on('chainChanged', () => {
-                window.location.reload();
-            });
+            // Listeners for smooth experience
+            window.ethereum.on('chainChanged', () => window.location.reload());
+            window.ethereum.on('accountsChanged', () => window.location.reload());
 
-            window.ethereum.on('accountsChanged', (newAccounts) => {
-                if (newAccounts.length === 0) {
-                    localStorage.setItem('manualLogout', 'true');
-                }
-                window.location.reload();
-            });
-
-        } catch (error) { 
-            console.error("Init Error:", error); 
+        } else {
+            // Simple Browser hai (Chrome/Safari), Read-only mode chalao
+            await setupReadOnly(bscTestnetRPC);
         }
-    } else { 
-        // Mobile users ke liye baar-baar alert pareshan karta hai, isliye console.log
-        console.log("Web3 Provider not found. Please use Trust Wallet or MetaMask."); 
+    } catch (error) { 
+        console.error("Init Error:", error);
+        await setupReadOnly(bscTestnetRPC); 
+    }
+}
+
+// Trust Wallet Special: Forcefully data dikhane ke liye
+async function setupReadOnly(rpcUrl) {
+    console.log("Switching to Read-Only Mode (RPC)");
+    try {
+        const tempProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
+        
+        // Provider aur Contract ko override karein taaki fetchAllData fail na ho
+        provider = tempProvider; 
+        window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
+        contract = window.contract;
+        
+        const savedAddr = localStorage.getItem('userAddress');
+        if (savedAddr && savedAddr !== "undefined") {
+            await setupApp(savedAddr);
+        }
+    } catch (e) {
+        console.error("RPC Setup Failed:", e);
     }
 }
 
@@ -525,6 +540,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
