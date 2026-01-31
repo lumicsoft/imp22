@@ -172,13 +172,52 @@ window.handleLogin = async function() {
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
+    
     if (!userField || !refField) return;
+
+    const username = userField.value.trim();
+    const referrer = refField.value.trim();
+
+    if (!username || !referrer) {
+        alert("Username and Referrer are required!");
+        return;
+    }
+
     try {
-        const tx = await contract.register(userField.value.trim(), refField.value.trim());
+        // 1. NETWORK CHECK (Trust Wallet Fix)
+        // Ensure user is on BSC Testnet (Chain ID: 97 or 0x61)
+        const network = await provider.getNetwork();
+        if (network.chainId !== 97) {
+            alert("Please switch your Trust Wallet to BSC Testnet!");
+            // Optional: Automatic switch request trigger kar sakte hain
+            return;
+        }
+
+        // 2. GAS LIMIT (Trust Wallet Fix)
+        // Trust Wallet kabhi kabhi gas estimate nahi kar paata, isliye manual dena safe hai
+        const tx = await contract.register(username, referrer, {
+            gasLimit: 800000 
+        });
+
+        console.log("Transaction Hash:", tx.hash);
+        alert("Registering... Please wait for confirmation.");
+
         await tx.wait();
+        
         localStorage.removeItem('manualLogout'); 
         window.location.href = "index1.html";
-    } catch (err) { alert("Error: " + (err.reason || err.message)); }
+
+    } catch (err) { 
+        console.error("Register Error:", err);
+        // User-friendly error messages
+        if (err.message.includes("user rejected")) {
+            alert("Aapne transaction cancel kar di!");
+        } else if (err.reason) {
+            alert("Error: " + err.reason);
+        } else {
+            alert("Registration failed! Check if username is already taken or your network is correct.");
+        }
+    }
 }
 window.handleLogout = function() {
     if (confirm("Disconnect and Logout?")) {
@@ -438,6 +477,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
