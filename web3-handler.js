@@ -294,13 +294,20 @@ function showLogoutIcon(address) {
     if (logout) logout.style.display = 'flex'; 
 }
 
-// --- APP SETUP ---
+// --- APP SETUP (Corrected) ---
 async function setupApp(address) {
-    const { chainId } = await provider.getNetwork();
-    if (chainId !== TESTNET_CHAIN_ID) { alert("Switch to BSC Mainnet!"); return; }
-    const userData = await contract.users(address);
+    // Trust Wallet timing fix: thoda delay taaki provider ready ho jaye
+    const network = await provider.getNetwork();
+    if (network.chainId !== TESTNET_CHAIN_ID) { 
+        alert("Please switch your wallet to BSC Testnet (Chain 97)!"); 
+        return; 
+    }
+
+    const activeContract = window.contract || contract;
+    const userData = await activeContract.users(address);
     const path = window.location.pathname;
 
+    // Registration Logic
     if (!userData.registered) {
         if (!path.includes('register.html') && !path.includes('login.html')) {
             window.location.href = "register.html"; 
@@ -316,12 +323,17 @@ async function setupApp(address) {
     updateNavbar(address);
     showLogoutIcon(address); 
 
+    // Page-specific data loading with small delay for stability
     if (path.includes('index1.html')) {
-        fetchAllData(address);
+        setTimeout(() => fetchAllData(address), 300);
         start8HourCountdown(); 
     }
-    if (path.includes('leadership.html')) fetchLeadershipData(address);
-    if (path.includes('history.html')) window.showHistory('deposit');
+    if (path.includes('leadership.html')) {
+        setTimeout(() => fetchLeadershipData(address), 300);
+    }
+    if (path.includes('history.html')) {
+        setTimeout(() => window.showHistory('deposit'), 300);
+    }
 }
 
 // --- HISTORY LOGIC ---
@@ -470,38 +482,35 @@ async function fetchAllData(address) {
         console.error("Data Sync Error:", err); 
     }
 }
+// --- LEADERSHIP DATA (Corrected for RPC Mode) ---
 async function fetchLeadershipData(address) {
     try {
-        // 1. Contract se dono mapping ka data fetch karna
+        const activeContract = window.contract || contract;
+        if (!activeContract) return;
+
         const [user, extra] = await Promise.all([
-            contract.users(address), 
-            contract.usersExtra(address)
+            activeContract.users(address), 
+            activeContract.usersExtra(address)
         ]);
 
-        // 2. Simple Numbers mein convert karna
         const teamActiveVol = parseFloat(ethers.utils.formatUnits(user.teamActiveDeposit, 18));
         const teamTotalVol = parseFloat(ethers.utils.formatUnits(user.teamTotalDeposit, 18));
         const rankRewards = parseFloat(ethers.utils.formatUnits(extra.rewardsRank, 18));
-        const teamCount = extra.teamCount; // Ye missing tha
-        const directsQuali = extra.directsQuali;
 
-        // 3. UI Elements ko update karna (Jo aapne HTML mein IDs di hain)
         updateText('team-active-deposit', teamActiveVol.toFixed(2));
         updateText('team-total-deposit', teamTotalVol.toFixed(2));
         updateText('rank-reward-available', rankRewards.toFixed(2));
-        updateText('current-team-count', teamCount);
-        updateText('directs-quali', directsQuali);
+        updateText('current-team-count', extra.teamCount);
+        updateText('directs-quali', extra.directsQuali);
         updateText('current-team-volume', teamActiveVol.toFixed(0));
 
-        // 4. Sabse Zaruri: Rank Progress Bar aur Next Target update karna
-        // Ye function aapne HTML page ke script tag mein likha hai
         if (typeof updateRankUI === "function") {
             updateRankUI(extra, teamActiveVol);
         }
-
     } catch (err) { 
         console.error("Leadership Data Error:", err); 
     }
+
 }
 function start8HourCountdown() {
     const timerElement = document.getElementById('next-timer');
@@ -540,6 +549,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
