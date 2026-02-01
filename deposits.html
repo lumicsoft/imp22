@@ -115,11 +115,28 @@
 
         async function loadActiveDeposits() {
             const grid = document.getElementById('deposits-grid');
-            if (typeof window.contract === 'undefined') { setTimeout(loadActiveDeposits, 1000); return; }
+            
+            // --- FIX 1: Check Global Contract ---
+            const activeContract = window.contract || contract;
+            if (!activeContract) { 
+                console.log("Waiting for contract...");
+                setTimeout(loadActiveDeposits, 1000); 
+                return; 
+            }
 
             try {
-                const address = await window.signer.getAddress();
-                const userData = await window.contract.users(address);
+                // --- FIX 2: Use Memory Address instead of signer.getAddress() ---
+                let address = localStorage.getItem('userAddress');
+                if (!address && window.signer) {
+                    address = await window.signer.getAddress();
+                }
+
+                if (!address) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-20 text-yellow-500 orbitron uppercase text-[10px]">Please Connect Wallet</div>`;
+                    return;
+                }
+
+                const userData = await activeContract.users(address);
                 const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
                 
                 document.getElementById('total-active-capital').innerText = totalActive.toLocaleString(undefined, {minimumFractionDigits: 2});
@@ -130,15 +147,14 @@
                 let html = '';
                 let foundAny = false;
 
-                // Loop fixed: Don't break on 0, just continue to find latest deposits
+                // Loop for positions
                 for (let i = 0; i < 50; i++) {
                     try {
-                        const pos = await window.contract.getPosition(address, i);
+                        const pos = await activeContract.getPosition(address, i);
                         const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
                         
-                        // If amount is 0, this index is empty, but don't break, check others
                         if (amount === 0) {
-                            if (i > 5) break; // Optimization: stop if many consecutive are 0
+                            if (i > 10) break; 
                             continue;
                         }
 
@@ -163,7 +179,6 @@
                                         </div>
                                         <span class="status-badge animate-pulse">RUNNING</span>
                                     </div>
-
                                     <div class="grid grid-cols-2 gap-3 mb-6">
                                         <div class="bg-black/40 p-3 rounded-xl border border-white/5">
                                             <p class="text-[8px] text-gray-500 font-bold uppercase mb-1">Daily Yield</p>
@@ -174,7 +189,6 @@
                                             <p class="text-xs font-bold text-yellow-500">ACTIVE</p>
                                         </div>
                                     </div>
-
                                     <div class="space-y-2">
                                         <div class="flex justify-between text-[10px] font-black orbitron">
                                             <span class="text-gray-500 uppercase">Cycle Progress</span>
@@ -195,14 +209,16 @@
                 lucide.createIcons();
             } catch (err) {
                 console.error(err);
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron uppercase text-[10px]">Contract Sync Error</div>`;
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron uppercase text-[10px]">Sync Error: Wallet possibly locked</div>`;
             }
         }
         
         window.addEventListener('load', () => {
-            setTimeout(loadActiveDeposits, 1200);
+            // Give 1.5 seconds for web3-handler.js to finish init
+            setTimeout(loadActiveDeposits, 1500);
             lucide.createIcons();
         });
     </script>
 </body>
 </html>
+
