@@ -51,7 +51,6 @@ function checkReferralURL() {
 }
 
 // --- INITIALIZATION ---
-// --- INITIALIZATION (Silent & Manual) ---
 async function init() {
     checkReferralURL();
     
@@ -61,23 +60,20 @@ async function init() {
 
     try {
         if (window.ethereum) {
-            // Sirf provider setup karo, wallet se permission abhi MAT maango
+           
             provider = new ethers.providers.Web3Provider(window.ethereum, "any");
             
-            // Background mein contract object ready rakho (without signer for now)
             window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
             contract = window.contract;
 
             // --- CONDITION START ---
             if (isIndexPage) {
-                // AGAR INDEX PAGE HAI: 
-                // Kuch mat karo. Na login, na redirect. Chup-chaap read-only data dikhao agar savedAddr hai.
+                
                 if (savedAddr) {
                     await setupReadOnly(bscTestnetRPC, savedAddr);
                 }
             } else {
-                // AGAR DASHBOARD/HISTORY PAGE HAI:
-                // Yahan automatic setup hone do taaki user ko bar-bar button na dabana pade
+               
                 const accounts = await window.ethereum.request({ method: 'eth_accounts' });
                 if (accounts.length > 0) {
                     const address = accounts[0];
@@ -93,7 +89,7 @@ async function init() {
             }
             // --- CONDITION END ---
 
-            // Listeners (Ye zaroori hain background mein)
+       
             window.ethereum.on('chainChanged', () => window.location.reload());
             window.ethereum.on('accountsChanged', (accs) => {
                 if (accs.length === 0) localStorage.removeItem('userAddress');
@@ -102,7 +98,7 @@ async function init() {
             });
 
         } else {
-            // No Wallet - Simple Read Only
+           
             await setupReadOnly(bscTestnetRPC, savedAddr);
         }
     } catch (error) { 
@@ -110,19 +106,16 @@ async function init() {
         if (savedAddr) await setupReadOnly(bscTestnetRPC, savedAddr);
     }
 }
-// Trust Wallet Special: Forcefully data dikhane ke liye
-// Trust Wallet Special: Backup data loader
+
 async function setupReadOnly(rpcUrl, forcedAddress = null) {
     console.log("Mode: RPC/Memory Data Loading...");
     try {
         const tempProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
         
-        // Provider aur Contract ko set karein taaki functions crash na hon
         provider = tempProvider; 
         window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
         contract = window.contract;
         
-        // Address priority: 1. Jo function ko diya gaya 2. Jo memory mein hai
         const addressToUse = forcedAddress || localStorage.getItem('userAddress');
         
         if (addressToUse && addressToUse !== "undefined" && addressToUse !== null) {
@@ -143,11 +136,11 @@ window.handleDeposit = async function() {
     }
 
     try {
-        // --- MULTI-MODE CHECK (Fix for "Cannot read property") ---
+       
         let activeSigner = window.signer || signer;
         let activeContract = window.contract || contract;
 
-        // Agar signer nahi hai (RPC mode), toh wallet connect karwao
+        
         if (!activeSigner || !window.ethereum) {
             if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
             
@@ -155,8 +148,7 @@ window.handleDeposit = async function() {
             await tempProvider.send("eth_requestAccounts", []);
             activeSigner = tempProvider.getSigner();
             activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-            
-            // Global variables bhi update kar dein taaki aage problem na aaye
+                        
             window.signer = activeSigner;
             window.contract = activeContract;
         }
@@ -167,7 +159,6 @@ window.handleDeposit = async function() {
         const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
         const userAddress = await activeSigner.getAddress();
         
-        // USDT Contract with Active Signer
         const usdt = new ethers.Contract(USDT_TOKEN_ADDRESS, ERC20_ABI, activeSigner);
 
         // 1. Approve Check
@@ -196,15 +187,15 @@ window.handleDeposit = async function() {
 }
 
 window.handleClaim = async function() {
-    const claimBtn = event.target; // Jo button click hua hai
+    const claimBtn = event.target;
     const originalText = claimBtn.innerText;
 
     try {
-        // --- MULTI-MODE CHECK (Wallet Connection Check) ---
+        
         let activeSigner = window.signer || signer;
         let activeContract = window.contract || contract;
 
-        // Agar signer nahi hai, toh pehle wallet jagao
+        
         if (!activeSigner || !window.ethereum) {
             if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
             
@@ -247,11 +238,11 @@ window.handleCompoundDaily = async function() {
     const originalText = compoundBtn.innerText;
 
     try {
-        // --- MULTI-MODE CHECK (Fix for RPC/Trust Wallet Delay) ---
+      
         let activeSigner = window.signer || signer;
         let activeContract = window.contract || contract;
 
-        // Agar signer missing hai, toh wallet connect request bhejo
+        
         if (!activeSigner || !window.ethereum) {
             if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
             
@@ -260,16 +251,16 @@ window.handleCompoundDaily = async function() {
             activeSigner = tempProvider.getSigner();
             activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
             
-            // Global variables update taaki agli baar connect na karna pade
+           
             window.signer = activeSigner;
             window.contract = activeContract;
         }
 
-        // UI Updates - User ko busy rakho
+       
         compoundBtn.disabled = true;
         compoundBtn.innerText = "WAITING...";
 
-        // --- TRANSACTION: Reinvest Matured ---
+       
         console.log("Starting Reinvestment...");
         const tx = await activeContract.reinvestMatured();
         
@@ -281,25 +272,23 @@ window.handleCompoundDaily = async function() {
 
     } catch (err) {
         console.error("Compound Error:", err);
-        // User ko clear error dikhao
+       
         alert("Reinvest failed: " + (err.reason || err.message || "Transaction Rejected"));
         
-        // Error par button ko wapas normal karo
+        
         compoundBtn.innerText = originalText;
         compoundBtn.disabled = false;
     }
 }
 
 window.handleCapitalWithdraw = async function() {
-    // 1. Pehle user se confirm karwao
+    
     if (!confirm("Are you sure? This will withdraw your matured capital to your wallet.")) return;
 
-    // Button ko pehchano animation ke liye
     const withdrawBtn = event.target;
     const originalText = withdrawBtn.innerText;
 
     try {
-        // --- MULTI-MODE CHECK (Wallet Jagane ke liye) ---
         let activeSigner = window.signer || signer;
         let activeContract = window.contract || contract;
 
@@ -315,11 +304,9 @@ window.handleCapitalWithdraw = async function() {
             window.contract = activeContract;
         }
 
-        // 2. UI Updates - User ko busy rakho
         withdrawBtn.disabled = true;
         withdrawBtn.innerText = "CONFIRMING...";
 
-        // --- TRANSACTION: Withdraw Capital ---
         console.log("Withdrawing Capital...");
         const tx = await activeContract.withdrawMaturedCapital();
         
@@ -333,7 +320,7 @@ window.handleCapitalWithdraw = async function() {
         console.error("Withdraw Error:", err);
         alert("Withdraw failed: " + (err.reason || err.message || "Transaction Rejected"));
         
-        // Error par button reset
+        
         withdrawBtn.innerText = originalText;
         withdrawBtn.disabled = false;
     }
@@ -342,12 +329,10 @@ window.handleLogin = async function() {
     try {
         if (!window.ethereum) return alert("Please install Trust Wallet or MetaMask!");
 
-        // 1. Connection Request
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         if (accounts.length === 0) return;
         const userAddress = accounts[0]; 
 
-        // 2. Fresh Provider aur Contract setup (Trust Wallet ke liye zaroori)
         const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
         const { chainId } = await tempProvider.getNetwork();
 
@@ -360,24 +345,18 @@ window.handleLogin = async function() {
         const tempSigner = tempProvider.getSigner();
         const tempContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
 
-        // Global variables ko update karein taaki logout na dikhaye
         provider = tempProvider;
         signer = tempSigner;
         contract = tempContract;
 
-        // 3. Registeration Check
         const userData = await contract.users(userAddress);
 
         if (userData.registered === true) {
-            // LocalStorage updates
             localStorage.setItem('userAddress', userAddress);
             localStorage.removeItem('manualLogout');
             
-            // UI Update (Optional but good)
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
             
-            // 4. Smooth Redirect
-            // Refresh ka jhanjhat khatam, seedha dashboard par bhejein
             window.location.href = "index1.html";
         } else {
             alert("User Are Not registered ! Plz  Registration...");
@@ -404,7 +383,7 @@ window.handleRegister = async function() {
     }
 
     try {
-        // --- STEP 1: WALLET & SIGNER CHECK ---
+      
         let activeSigner = window.signer || signer;
         let activeContract = window.contract || contract;
 
@@ -420,7 +399,7 @@ window.handleRegister = async function() {
             window.contract = activeContract;
         }
 
-        // --- STEP 2: NETWORK AUTO-SWITCH (BSC Testnet: 97) ---
+        // ---  NETWORK AUTO-SWITCH (BSC Testnet: 97) ---
         const network = await activeSigner.provider.getNetwork();
         if (network.chainId !== 97) {
             try {
@@ -434,11 +413,10 @@ window.handleRegister = async function() {
             }
         }
 
-        // UI Update
         regBtn.disabled = true;
         regBtn.innerText = "CHECKING...";
 
-        // --- STEP 3: TRANSACTION WITH MANUAL GAS ---
+        
         console.log("Registering username:", username);
         
         // Manual gas limit for Trust Wallet stability
@@ -451,9 +429,9 @@ window.handleRegister = async function() {
 
         await tx.wait();
         
-        // Success: Clear memory and move to dashboard
+        
         localStorage.removeItem('manualLogout');
-        localStorage.setItem('userAddress', await activeSigner.getAddress()); // Save for other pages
+        localStorage.setItem('userAddress', await activeSigner.getAddress()); 
         
         alert("Registration Successful!");
         window.location.href = "index1.html";
@@ -472,13 +450,11 @@ window.handleRegister = async function() {
 }
 window.handleLogout = function() {
     if (confirm("Disconnect and Logout?")) {
-        // 1. Saara local storage saaf karein (Sabse zaroori fix)
+       
         localStorage.clear(); 
         
-        // 2. Manual logout flag set karein (taaki auto-login na ho)
         localStorage.setItem('manualLogout', 'true');
         
-        // 3. Login page par bhej dein
         window.location.href = "index.html"; 
     }
 }
@@ -493,9 +469,7 @@ function showLogoutIcon(address) {
 async function setupApp(address) {
     if (!address || address === "undefined") return;
     
-    // Sabse pehle address ko browser ki memory (LocalStorage) mein save karo
     localStorage.setItem('userAddress', address);
-    // Trust Wallet timing fix: thoda delay taaki provider ready ho jaye
     const network = await provider.getNetwork();
     if (network.chainId !== TESTNET_CHAIN_ID) { 
         alert("Please switch your wallet to BSC Testnet (Chain 97)!"); 
@@ -522,7 +496,6 @@ async function setupApp(address) {
     updateNavbar(address);
     showLogoutIcon(address); 
 
-    // Page-specific data loading with small delay for stability
     if (path.includes('index1.html')) {
         setTimeout(() => fetchAllData(address), 300);
         start8HourCountdown(); 
@@ -540,10 +513,8 @@ window.showHistory = async function(category) {
     const container = document.getElementById('history-container');
     if(!container) return;
     
-    // UI Feedback: Loading state
     container.innerHTML = `<div class="p-10 text-center text-yellow-500 italic animate-pulse">Fetching ${category.toUpperCase()} Records...</div>`;
-    
-    // Category mapping: Kaunsa button dabane par kya dikhna chahiye
+  
     const typeMap = {
         'deposit': ['DEPOSIT'],
         'compounding': ['REINVEST'],
@@ -577,10 +548,8 @@ window.showHistory = async function(category) {
 window.fetchBlockchainHistory = async function(allowedTypes) {
     try {
         // --- TRUST WALLET FIX ---
-        // Signer ka wait karne ke bajaye seedha localStorage se address lo
         let address = localStorage.getItem('userAddress');
         
-        // Agar memory khali hai, tabhi signer se pucho (Backup)
         if (!address && window.signer) {
             address = await window.signer.getAddress();
         }
@@ -590,13 +559,11 @@ window.fetchBlockchainHistory = async function(allowedTypes) {
             return [];
         }
 
-        // Contract bhi active wala use karein
         const activeContract = window.contract || contract;
         if (!activeContract) return [];
 
         const rawHistory = await activeContract.getUserHistory(address);
         
-        // Blockchain se aayi array ko filter aur format karna
         return rawHistory
             .filter(item => {
                 const txType = item.txType.toUpperCase();
@@ -606,7 +573,6 @@ window.fetchBlockchainHistory = async function(allowedTypes) {
                 const txType = item.txType.toUpperCase();
                 const dt = new Date(item.timestamp.toNumber() * 1000);
                 
-                // Income ke liye alag color, baaki ke liye cyan/red
                 let colorClass = 'text-cyan-400';
                 if(txType.includes('INCOME')) colorClass = 'text-green-400';
                 if(txType.includes('WITHDRAW')) colorClass = 'text-red-400';
@@ -630,7 +596,7 @@ window.fetchBlockchainHistory = async function(allowedTypes) {
 async function fetchAllData(address) {
     try {
         // --- TRUST WALLET CONNECTION FIX ---
-        // Agar main 'contract' object khali hai, toh read-only use karein
+        
         const activeContract = window.contract || contract;
         
         if (!activeContract) {
@@ -638,7 +604,7 @@ async function fetchAllData(address) {
             return;
         }
 
-        // 1. Contract se data fetch karna (SAME LOGIC)
+    
         const [user, extra, live] = await Promise.all([
             activeContract.users(address), 
             activeContract.usersExtra(address), 
@@ -768,6 +734,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
