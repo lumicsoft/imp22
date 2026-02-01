@@ -36,8 +36,8 @@ const CONTRACT_ABI = [
 
 const ERC20_ABI = ["function approve(address spender, uint256 amount) public returns (bool)", "function allowance(address owner, address spender) public view returns (uint256)"];
 
-// ROI calculation (0.7% fixed)
-const calculateGlobalROI = () => 0.70;
+// ROI calculation (0.9% fixed)
+const calculateGlobalROI = () => 0.90;
 
 // --- 1. AUTO-FILL LOGIC ---
 function checkReferralURL() {
@@ -668,8 +668,8 @@ async function fetchAllData(address) {
         updateText('cap-balance', format(user.totalActiveDeposit));
         updateText('active-deposit-cp', format(user.totalActiveDeposit));
 
-        // Daily ROI Projection (0.7%)
-        updateText('projected-return', (activeAmt * 0.007).toFixed(2));
+        // Daily ROI Projection (0.9%)
+        updateText('projected-return', (activeAmt * 0.009).toFixed(2));
 
         // --- RANK & STATUS ---
         // getRankName ko bhi activeContract se call kar rahe hain (Fix for Trust Wallet)
@@ -769,6 +769,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
