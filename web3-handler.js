@@ -197,30 +197,148 @@ window.handleDeposit = async function() {
 }
 
 window.handleClaim = async function() {
-    try {
-        const tx = await contract.claimRewards();
-        await tx.wait();
-        location.reload();
-    } catch (err) { alert("Claim failed: " + (err.reason || err.message)); }
-}
+    const claimBtn = event.target; // Jo button click hua hai
+    const originalText = claimBtn.innerText;
 
-window.handleCompoundDaily = async function() {
     try {
-        const tx = await contract.reinvestMatured();
+        // --- MULTI-MODE CHECK (Wallet Connection Check) ---
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        // Agar signer nahi hai, toh pehle wallet jagao
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        // UI Updates
+        claimBtn.disabled = true;
+        claimBtn.innerText = "SIGNING...";
+
+        // --- TRANSACTION ---
+        const tx = await activeContract.claimRewards();
+        
+        claimBtn.innerText = "CLAIMING...";
+        console.log("Claim tx sent:", tx.hash);
+        
         await tx.wait();
-        location.reload();
-    } catch (err) { alert("Reinvest failed: " + (err.reason || err.message)); }
+        
+        alert("Rewards Claimed Successfully!");
+        location.reload(); 
+
+    } catch (err) {
+        console.error("Claim Error:", err);
+        alert("Claim failed: " + (err.reason || err.message || "User rejected or error occurred"));
+        
+        // Reset Button on Error
+        claimBtn.innerText = originalText;
+        claimBtn.disabled = false;
+    }
+}
+window.handleCompoundDaily = async function() {
+    // Button ko pehchano taaki animation dikha sakein
+    const compoundBtn = event.target;
+    const originalText = compoundBtn.innerText;
+
+    try {
+        // --- MULTI-MODE CHECK (Fix for RPC/Trust Wallet Delay) ---
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        // Agar signer missing hai, toh wallet connect request bhejo
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            // Global variables update taaki agli baar connect na karna pade
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        // UI Updates - User ko busy rakho
+        compoundBtn.disabled = true;
+        compoundBtn.innerText = "WAITING...";
+
+        // --- TRANSACTION: Reinvest Matured ---
+        console.log("Starting Reinvestment...");
+        const tx = await activeContract.reinvestMatured();
+        
+        compoundBtn.innerText = "REINVESTING...";
+        await tx.wait();
+        
+        alert("Reinvestment Successful!");
+        location.reload(); 
+
+    } catch (err) {
+        console.error("Compound Error:", err);
+        // User ko clear error dikhao
+        alert("Reinvest failed: " + (err.reason || err.message || "Transaction Rejected"));
+        
+        // Error par button ko wapas normal karo
+        compoundBtn.innerText = originalText;
+        compoundBtn.disabled = false;
+    }
 }
 
 window.handleCapitalWithdraw = async function() {
-    if (!confirm("Are you sure? This will withdraw matured capital.")) return;
-    try {
-        const tx = await contract.withdrawMaturedCapital();
-        await tx.wait();
-        location.reload();
-    } catch (err) { alert("Failed: " + (err.reason || err.message)); }
-}
+    // 1. Pehle user se confirm karwao
+    if (!confirm("Are you sure? This will withdraw your matured capital to your wallet.")) return;
 
+    // Button ko pehchano animation ke liye
+    const withdrawBtn = event.target;
+    const originalText = withdrawBtn.innerText;
+
+    try {
+        // --- MULTI-MODE CHECK (Wallet Jagane ke liye) ---
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        // 2. UI Updates - User ko busy rakho
+        withdrawBtn.disabled = true;
+        withdrawBtn.innerText = "CONFIRMING...";
+
+        // --- TRANSACTION: Withdraw Capital ---
+        console.log("Withdrawing Capital...");
+        const tx = await activeContract.withdrawMaturedCapital();
+        
+        withdrawBtn.innerText = "WITHDRAWING...";
+        await tx.wait();
+        
+        alert("Capital Withdrawn Successfully!");
+        location.reload(); 
+
+    } catch (err) {
+        console.error("Withdraw Error:", err);
+        alert("Withdraw failed: " + (err.reason || err.message || "Transaction Rejected"));
+        
+        // Error par button reset
+        withdrawBtn.innerText = originalText;
+        withdrawBtn.disabled = false;
+    }
+}
 window.handleLogin = async function() {
     try {
         if (!window.ethereum) return alert("Please install Trust Wallet or MetaMask!");
@@ -274,6 +392,7 @@ window.handleLogin = async function() {
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
+    const regBtn = event.target; // Button ko pakadne ke liye
     
     if (!userField || !refField) return;
 
@@ -286,38 +405,69 @@ window.handleRegister = async function() {
     }
 
     try {
-        // 1. NETWORK CHECK (Trust Wallet Fix)
-        // Ensure user is on BSC Testnet (Chain ID: 97 or 0x61)
-        const network = await provider.getNetwork();
-        if (network.chainId !== 97) {
-            alert("Please switch your Trust Wallet to BSC Testnet!");
-            // Optional: Automatic switch request trigger kar sakte hain
-            return;
+        // --- STEP 1: WALLET & SIGNER CHECK ---
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet/MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            window.signer = activeSigner;
+            window.contract = activeContract;
         }
 
-        // 2. GAS LIMIT (Trust Wallet Fix)
-        // Trust Wallet kabhi kabhi gas estimate nahi kar paata, isliye manual dena safe hai
-        const tx = await contract.register(username, referrer, {
-            gasLimit: 800000 
+        // --- STEP 2: NETWORK AUTO-SWITCH (BSC Testnet: 97) ---
+        const network = await activeSigner.provider.getNetwork();
+        if (network.chainId !== 97) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x61' }], // 0x61 = 97
+                });
+            } catch (switchError) {
+                alert("Please switch your wallet to BSC Testnet manually!");
+                return;
+            }
+        }
+
+        // UI Update
+        regBtn.disabled = true;
+        regBtn.innerText = "CHECKING...";
+
+        // --- STEP 3: TRANSACTION WITH MANUAL GAS ---
+        console.log("Registering username:", username);
+        
+        // Manual gas limit for Trust Wallet stability
+        const tx = await activeContract.register(username, referrer, {
+            gasLimit: 500000 
         });
 
-        console.log("Transaction Hash:", tx.hash);
-        alert("Registering... Please wait for confirmation.");
+        regBtn.innerText = "CONFIRMING...";
+        console.log("Tx Hash:", tx.hash);
 
         await tx.wait();
         
-        localStorage.removeItem('manualLogout'); 
+        // Success: Clear memory and move to dashboard
+        localStorage.removeItem('manualLogout');
+        localStorage.setItem('userAddress', await activeSigner.getAddress()); // Save for other pages
+        
+        alert("Registration Successful!");
         window.location.href = "index1.html";
 
     } catch (err) { 
         console.error("Register Error:", err);
-        // User-friendly error messages
-        if (err.message.includes("user rejected")) {
-            alert("Aapne transaction cancel kar di!");
-        } else if (err.reason) {
-            alert("Error: " + err.reason);
+        regBtn.disabled = false;
+        regBtn.innerText = "REGISTER NOW";
+
+        if (err.code === 4001 || err.message.includes("user rejected")) {
+            alert("Transaction rejected by user.");
         } else {
-            alert("Registration failed! Check if username is already taken or your network is correct.");
+            alert("Error: " + (err.reason || "Username might be taken or balance is low."));
         }
     }
 }
@@ -619,6 +769,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
