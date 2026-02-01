@@ -380,7 +380,7 @@ window.handleLogin = async function() {
             // Refresh ka jhanjhat khatam, seedha dashboard par bhejein
             window.location.href = "index1.html";
         } else {
-            alert("Aap registered nahi hain! Redirecting to Registration...");
+            alert("User Are Not registered ! Plz  Registration...");
             window.location.href = "register.html";
         }
     } catch (err) { 
@@ -768,6 +768,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
