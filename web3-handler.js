@@ -51,61 +51,60 @@ function checkReferralURL() {
 }
 
 // --- INITIALIZATION ---
-// --- INITIALIZATION (Trust Wallet Optimized) ---
+// --- INITIALIZATION (Silent & Manual) ---
 async function init() {
     checkReferralURL();
     
     const bscTestnetRPC = "https://data-seed-prebsc-1-s1.binance.org:8545/";
-    
-    // 1. Browser memory se purana connected address check karein
     const savedAddr = localStorage.getItem('userAddress');
+    const isIndexPage = window.location.pathname.endsWith('index.html') || window.location.pathname === '/';
 
     try {
-        // STEP A: Agar memory mein address hai, toh bina wallet ka wait kiye data load karo
-        if (savedAddr && savedAddr !== "undefined" && savedAddr !== null) {
-            console.log("Memory se address mila:", savedAddr);
-            await setupReadOnly(bscTestnetRPC, savedAddr);
-        }
-
-        // STEP B: Ab background mein Wallet (MetaMask/Trust) ko check karo
         if (window.ethereum) {
-            // Trust Wallet ko inject hone ke liye thoda extra time
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
+            // Sirf provider setup karo, wallet se permission abhi MAT maango
             provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
             
-            if (accounts.length > 0) {
-                const address = accounts[0];
-                
-                // Address ko memory mein update/save karein
-                localStorage.setItem('userAddress', address);
-                
-                signer = provider.getSigner();
-                window.signer = signer;
-                window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-                contract = window.contract;
-                
-                // Final full setup (with signer)
-                await setupApp(address);
-            } 
-            
-            // Listeners
+            // Background mein contract object ready rakho (without signer for now)
+            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+            contract = window.contract;
+
+            // --- CONDITION START ---
+            if (isIndexPage) {
+                // AGAR INDEX PAGE HAI: 
+                // Kuch mat karo. Na login, na redirect. Chup-chaap read-only data dikhao agar savedAddr hai.
+                if (savedAddr) {
+                    await setupReadOnly(bscTestnetRPC, savedAddr);
+                }
+            } else {
+                // AGAR DASHBOARD/HISTORY PAGE HAI:
+                // Yahan automatic setup hone do taaki user ko bar-bar button na dabana pade
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    const address = accounts[0];
+                    localStorage.setItem('userAddress', address);
+                    signer = provider.getSigner();
+                    window.signer = signer;
+                    window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                    contract = window.contract;
+                    await setupApp(address);
+                } else if (savedAddr) {
+                    await setupReadOnly(bscTestnetRPC, savedAddr);
+                }
+            }
+            // --- CONDITION END ---
+
+            // Listeners (Ye zaroori hain background mein)
             window.ethereum.on('chainChanged', () => window.location.reload());
             window.ethereum.on('accountsChanged', (accs) => {
-                if (accs.length === 0) {
-                    localStorage.removeItem('userAddress');
-                } else {
-                    localStorage.setItem('userAddress', accs[0]);
-                }
+                if (accs.length === 0) localStorage.removeItem('userAddress');
+                else localStorage.setItem('userAddress', accs[0]);
                 window.location.reload();
             });
 
-        } else if (!savedAddr) {
-            // Agar na wallet hai na memory mein address, toh khali read-only chalao
-            await setupReadOnly(bscTestnetRPC);
+        } else {
+            // No Wallet - Simple Read Only
+            await setupReadOnly(bscTestnetRPC, savedAddr);
         }
-
     } catch (error) { 
         console.error("Init Error:", error);
         if (savedAddr) await setupReadOnly(bscTestnetRPC, savedAddr);
@@ -769,6 +768,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
