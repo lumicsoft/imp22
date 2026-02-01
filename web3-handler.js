@@ -51,66 +51,83 @@ function checkReferralURL() {
 }
 
 // --- INITIALIZATION ---
+// --- INITIALIZATION (Trust Wallet Optimized) ---
 async function init() {
     checkReferralURL();
     
-    // BSC Testnet ka Public RPC (Trust Wallet fallback ke liye)
     const bscTestnetRPC = "https://data-seed-prebsc-1-s1.binance.org:8545/";
+    
+    // 1. Browser memory se purana connected address check karein
+    const savedAddr = localStorage.getItem('userAddress');
 
     try {
-        // Trust Wallet/MetaMask ko detect hone ke liye thoda time dena zaroori hai
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // STEP A: Agar memory mein address hai, toh bina wallet ka wait kiye data load karo
+        if (savedAddr && savedAddr !== "undefined" && savedAddr !== null) {
+            console.log("Memory se address mila:", savedAddr);
+            await setupReadOnly(bscTestnetRPC, savedAddr);
+        }
 
+        // STEP B: Ab background mein Wallet (MetaMask/Trust) ko check karo
         if (window.ethereum) {
-            // "any" network use karne se Trust Wallet switch hone par crash nahi hota
-            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            // Trust Wallet ko inject hone ke liye thoda extra time
+            await new Promise(resolve => setTimeout(resolve, 500));
             
-            // Reliable way to check accounts
+            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
             const accounts = await window.ethereum.request({ method: 'eth_accounts' });
             
             if (accounts.length > 0) {
                 const address = accounts[0];
-                signer = provider.getSigner();
                 
-                // Global variables set karein
+                // Address ko memory mein update/save karein
+                localStorage.setItem('userAddress', address);
+                
+                signer = provider.getSigner();
                 window.signer = signer;
                 window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
                 contract = window.contract;
                 
+                // Final full setup (with signer)
                 await setupApp(address);
-            } else {
-                // Wallet connected nahi hai, Read-only mode chalao
-                await setupReadOnly(bscTestnetRPC);
-            }
-
-            // Listeners for smooth experience
+            } 
+            
+            // Listeners
             window.ethereum.on('chainChanged', () => window.location.reload());
-            window.ethereum.on('accountsChanged', () => window.location.reload());
+            window.ethereum.on('accountsChanged', (accs) => {
+                if (accs.length === 0) {
+                    localStorage.removeItem('userAddress');
+                } else {
+                    localStorage.setItem('userAddress', accs[0]);
+                }
+                window.location.reload();
+            });
 
-        } else {
-            // Simple Browser hai (Chrome/Safari), Read-only mode chalao
+        } else if (!savedAddr) {
+            // Agar na wallet hai na memory mein address, toh khali read-only chalao
             await setupReadOnly(bscTestnetRPC);
         }
+
     } catch (error) { 
         console.error("Init Error:", error);
-        await setupReadOnly(bscTestnetRPC); 
+        if (savedAddr) await setupReadOnly(bscTestnetRPC, savedAddr);
     }
 }
-
 // Trust Wallet Special: Forcefully data dikhane ke liye
-async function setupReadOnly(rpcUrl) {
-    console.log("Switching to Read-Only Mode (RPC)");
+// Trust Wallet Special: Backup data loader
+async function setupReadOnly(rpcUrl, forcedAddress = null) {
+    console.log("Mode: RPC/Memory Data Loading...");
     try {
         const tempProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
         
-        // Provider aur Contract ko override karein taaki fetchAllData fail na ho
+        // Provider aur Contract ko set karein taaki functions crash na hon
         provider = tempProvider; 
         window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
         contract = window.contract;
         
-        const savedAddr = localStorage.getItem('userAddress');
-        if (savedAddr && savedAddr !== "undefined") {
-            await setupApp(savedAddr);
+        // Address priority: 1. Jo function ko diya gaya 2. Jo memory mein hai
+        const addressToUse = forcedAddress || localStorage.getItem('userAddress');
+        
+        if (addressToUse && addressToUse !== "undefined" && addressToUse !== null) {
+            await setupApp(addressToUse);
         }
     } catch (e) {
         console.error("RPC Setup Failed:", e);
@@ -324,8 +341,11 @@ function showLogoutIcon(address) {
     if (logout) logout.style.display = 'flex'; 
 }
 
-// --- APP SETUP (Corrected) ---
 async function setupApp(address) {
+    if (!address || address === "undefined") return;
+    
+    // Sabse pehle address ko browser ki memory (LocalStorage) mein save karo
+    localStorage.setItem('userAddress', address);
     // Trust Wallet timing fix: thoda delay taaki provider ready ho jaye
     const network = await provider.getNetwork();
     if (network.chainId !== TESTNET_CHAIN_ID) { 
@@ -407,17 +427,37 @@ window.showHistory = async function(category) {
 
 window.fetchBlockchainHistory = async function(allowedTypes) {
     try {
-        const address = await signer.getAddress();
-        const rawHistory = await contract.getUserHistory(address);
+        // --- TRUST WALLET FIX ---
+        // Signer ka wait karne ke bajaye seedha localStorage se address lo
+        let address = localStorage.getItem('userAddress');
+        
+        // Agar memory khali hai, tabhi signer se pucho (Backup)
+        if (!address && window.signer) {
+            address = await window.signer.getAddress();
+        }
+
+        if (!address || address === "undefined") {
+            console.log("History Error: No address found yet");
+            return [];
+        }
+
+        // Contract bhi active wala use karein
+        const activeContract = window.contract || contract;
+        if (!activeContract) return [];
+
+        const rawHistory = await activeContract.getUserHistory(address);
         
         // Blockchain se aayi array ko filter aur format karna
         return rawHistory
-            .filter(item => allowedTypes.includes(item.txType.toUpperCase())) // Sirf wahi dikhao jo manga hai
+            .filter(item => {
+                const txType = item.txType.toUpperCase();
+                return allowedTypes.includes(txType);
+            }) 
             .map(item => {
                 const txType = item.txType.toUpperCase();
                 const dt = new Date(item.timestamp.toNumber() * 1000);
                 
-                // Income ke liye alag color, baaki ke liye cyan
+                // Income ke liye alag color, baaki ke liye cyan/red
                 let colorClass = 'text-cyan-400';
                 if(txType.includes('INCOME')) colorClass = 'text-green-400';
                 if(txType.includes('WITHDRAW')) colorClass = 'text-red-400';
@@ -579,6 +619,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
