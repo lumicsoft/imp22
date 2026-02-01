@@ -125,7 +125,7 @@
             }
 
             try {
-                // --- FIX 2: Use Memory Address instead of signer.getAddress() ---
+               
                 let address = localStorage.getItem('userAddress');
                 if (!address && window.signer) {
                     address = await window.signer.getAddress();
@@ -214,12 +214,13 @@
         }
         
         window.addEventListener('load', () => {
-            // Give 1.5 seconds for web3-handler.js to finish init
+           
             setTimeout(loadActiveDeposits, 1500);
             lucide.createIcons();
         });
     </script>
 </body>
 </html>
+
 
 
