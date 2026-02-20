@@ -1,7 +1,7 @@
 let provider, signer, contract;
 
 // --- CONFIGURATION ---
-const CONTRACT_ADDRESS = "0x5288b2C38f78b29D6a809b614725ae798DD1Bea2"; 
+const CONTRACT_ADDRESS = "0x7022a805fabe534047aed5edeb771cc47fc8be2c"; 
 const USDT_TOKEN_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; // BSC USDT
 const TESTNET_CHAIN_ID = 97; 
 
@@ -734,6 +734,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
