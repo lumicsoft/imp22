@@ -44,19 +44,32 @@
         </div>
 
         <div class="premium-card">
-            <div class="inner-content flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="inner-content flex flex-col gap-6 p-6">
                 <div class="flex items-center gap-4">
                     <div class="p-3 bg-yellow-600/20 rounded-lg border border-yellow-600/30">
                         <i data-lucide="arrow-down-to-line" class="text-yellow-500 w-6 h-6"></i>
                     </div>
                     <div>
                         <p class="label-text">Deposit USDT</p>
-                        <p class="text-[10px] text-gray-500 uppercase">Input Amount Below</p>
+                        <p class="text-[10px] text-gray-500 uppercase">Select or Enter Amount Below</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3 w-full md:w-auto">
-                    <input type="number" id="deposit-amount" placeholder="Enter Amount" class="deposit-input-field md:w-48">
-                    <button id="deposit-btn" onclick="handleDeposit()" class="btn-gold-pro px-8 py-3 rounded-xl text-xs orbitron whitespace-nowrap">Deposit Now</button>
+
+                <div class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2">
+                    <button onclick="setAmount(10)" class="btn-outline-pro py-2 rounded-lg text-[10px] border-white/10 hover:border-yellow-500 hover:text-yellow-500 transition-all">$10</button>
+                    <button onclick="setAmount(20)" class="btn-outline-pro py-2 rounded-lg text-[10px] border-white/10 hover:border-yellow-500 hover:text-yellow-500 transition-all">$20</button>
+                    <button onclick="setAmount(50)" class="btn-outline-pro py-2 rounded-lg text-[10px] border-white/10 hover:border-yellow-500 hover:text-yellow-500 transition-all">$50</button>
+                    <button onclick="setAmount(100)" class="btn-outline-pro py-2 rounded-lg text-[10px] border-white/10 hover:border-yellow-500 hover:text-yellow-500 transition-all">$100</button>
+                    <button onclick="setAmount(200)" class="btn-outline-pro py-2 rounded-lg text-[10px] border-white/10 hover:border-yellow-500 hover:text-yellow-500 transition-all">$200</button>
+                    <button onclick="setAmount(500)" class="btn-outline-pro py-2 rounded-lg text-[10px] border-white/10 hover:border-yellow-500 hover:text-yellow-500 transition-all">$500</button>
+                    <button onclick="setAmount(1000)" class="btn-outline-pro py-2 rounded-lg text-[10px] border-white/10 hover:border-yellow-500 hover:text-yellow-500 transition-all">$1000</button>
+                    <button onclick="setAmount(5000)" class="btn-outline-pro py-2 rounded-lg text-[10px] border-white/10 hover:border-yellow-500 hover:text-yellow-500 transition-all">$5000</button>
+                    <button onclick="setAmount(10000)" class="btn-outline-pro py-2 rounded-lg text-[10px] border-white/10 hover:border-yellow-500 hover:text-yellow-500 transition-all">$10000</button>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-center gap-3 w-full">
+                    <input type="number" id="deposit-amount" placeholder="Enter custom amount" class="deposit-input-field w-full md:flex-1">
+                    <button id="deposit-btn" onclick="handleDeposit()" class="btn-gold-pro px-8 py-3 rounded-xl text-xs orbitron whitespace-nowrap w-full md:w-auto">Deposit Now</button>
                 </div>
             </div>
         </div>
@@ -161,7 +174,6 @@
                             </tr>
                         </thead>
                         <tbody id="cp-chart-body">
-                            
                             <tr class="bg-yellow-500/10"><td class="text-yellow-400 font-black">10 USDT to 10000 USDT 🔥</td><td class="text-yellow-400 font-black">0.90%</td></tr>
                         </tbody>
                     </table>
@@ -177,6 +189,16 @@
     
     <script>
         lucide.createIcons();
+
+        // New function to set amount from quick buttons
+        function setAmount(amt) {
+            const input = document.getElementById('deposit-amount');
+            input.value = amt;
+            // Optional: visual feedback
+            input.classList.add('border-yellow-500');
+            setTimeout(() => input.classList.remove('border-yellow-500'), 500);
+        }
+
         function copyLink() {
             const refInput = document.getElementById('refURL');
             if(refInput.value !== "loading") {
@@ -188,7 +210,9 @@
         window.addEventListener('load', () => {
              const updateBadge = () => {
                 const statusBadge = document.getElementById('status-badge');
-                const activeDep = parseFloat(document.getElementById('active-deposit').innerText) || 0;
+                const activeDepElement = document.getElementById('active-deposit');
+                const activeDep = activeDepElement ? parseFloat(activeDepElement.innerText) || 0 : 0;
+                
                 if(activeDep > 0) {
                    statusBadge.innerHTML = "● Active Status";
                    statusBadge.className = "px-4 py-1 rounded-full bg-green-500/20 text-green-500 text-[10px] font-black border border-green-500/30 uppercase";
@@ -198,5 +222,4 @@
         });
     </script>
 </body>
-
 </html>
