@@ -620,9 +620,9 @@ async function fetchAllData(address) {
         updateText('total-withdrawn', format(user.totalWithdrawn));
         
         // Income breakdown display
-        updateText('level-earning', format(extra.rewardsReferral)); 
-        updateText('rank-earning', format(extra.rewardsRank)); 
-
+        updateText('level-earning', format(extra.totalEarnedLevel)); 
+        updateText('rank-earning', format(extra.totalEarnedRank)); 
+ updateText('roi-earning', format(extra.totalEarnedROI)); 
         // --- THE ULTIMATE FIX ---
         const totalWithdrawable = parseFloat(format(live));
         const activeAmt = parseFloat(format(user.totalActiveDeposit));
@@ -734,6 +734,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
