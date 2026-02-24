@@ -22,6 +22,7 @@ const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external", 
     "function claimRewards() external",
+    "function reinvestRewards() external",
     "function reinvestMatured() external",
     "function withdrawMaturedCapital() external",
     "function getRankName(uint8 rankId) public view returns (string)",
@@ -230,6 +231,34 @@ window.handleClaim = async function() {
         // Reset Button on Error
         claimBtn.innerText = originalText;
         claimBtn.disabled = false;
+    }
+}
+// 1. REINVEST REWARDS (Income Balance Reinvest)
+window.handleReinvestRewards = async function() {
+    const btn = event.target;
+    const originalText = btn.innerText;
+    try {
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            window.signer = activeSigner; window.contract = activeContract;
+        }
+
+        btn.disabled = true; btn.innerText = "SIGNING...";
+        const tx = await activeContract.reinvestRewards();
+        btn.innerText = "PROCESSING...";
+        await tx.wait();
+        alert("Rewards Reinvested Successfully!");
+        location.reload();
+    } catch (err) {
+        console.error(err);
+        alert("Failed: " + (err.reason || "Min $3 Required or Rejected"));
+        btn.innerText = originalText; btn.disabled = false;
     }
 }
 window.handleCompoundDaily = async function() {
@@ -734,6 +763,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
