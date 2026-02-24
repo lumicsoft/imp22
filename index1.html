@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>pro max</title>
+    <title>pro max - Dashboard</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
@@ -74,6 +74,43 @@
             </div>
         </div>
 
+        <div class="premium-card">
+            <div class="inner-content !block p-6">
+                <h3 class="text-xs font-black orbitron mb-6 uppercase italic text-yellow-500 tracking-widest flex items-center gap-2">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Network & ROI Overview
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <div class="bg-black/40 p-5 rounded-2xl border border-white/5 flex items-center gap-4">
+                        <div class="p-3 bg-emerald-600/20 rounded-lg border border-emerald-600/30">
+                            <i data-lucide="refresh-cw" class="text-emerald-500 w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <p class="label-text">Total ROI Income</p>
+                            <h4 class="text-xl font-black orbitron text-white">$<span id="roi-earning">0.00</span></h4>
+                        </div>
+                    </div>
+                    <div class="bg-black/40 p-5 rounded-2xl border border-white/5 flex items-center gap-4">
+                        <div class="p-3 bg-blue-600/20 rounded-lg border border-blue-600/30">
+                            <i data-lucide="users-2" class="text-blue-500 w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <p class="label-text">Total Team</p>
+                            <h4 class="text-xl font-black orbitron text-white"><span id="team-count">0</span></h4>
+                        </div>
+                    </div>
+                    <div class="bg-black/40 p-5 rounded-2xl border border-white/5 flex items-center gap-4">
+                        <div class="p-3 bg-purple-600/20 rounded-lg border border-purple-600/30">
+                            <i data-lucide="user-plus" class="text-purple-500 w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <p class="label-text">Referral Team</p>
+                            <h4 class="text-xl font-black orbitron text-white"><span id="directs-count">0</span></h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <div class="premium-card"><div class="inner-content stat-box">
                 <div class="flex items-center gap-3"><i data-lucide="database" class="text-yellow-600 w-6 h-6"></i><p class="label-text">Deposits</p></div>
@@ -96,7 +133,7 @@
                 <h3 class="amount-text orbitron">$<span id="total-earned">0.00</span></h3>
             </div></div>
             <div class="premium-card"><div class="inner-content stat-box">
-                <div class="flex items-center gap-3"><i data-lucide="wallet" class="text-sky-500 w-6 h-6"></i><p class="label-text">Withdrawble</p></div>
+                <div class="flex items-center gap-3"><i data-lucide="wallet" class="text-sky-500 w-6 h-6"></i><p class="label-text">Total Withdrawable</p></div>
                 <h3 class="amount-text orbitron">$<span id="compounding-balance">0.00</span></h3>
             </div></div>
             <div class="premium-card"><div class="inner-content stat-box">
@@ -143,9 +180,11 @@
             <div class="inner-content !block py-8 text-center">
                 <p class="label-text tracking-[8px] mb-3 opacity-60">Withdrawable Balance</p>
                 <h3 class="text-4xl font-black orbitron text-white mb-8">$<span id="compounding-balance">0.00</span></h3>
-                <div class="flex justify-center max-w-sm mx-auto">
-                    <button onclick="handleClaim()" class="btn-gold-pro px-12 py-4 rounded-xl orbitron text-xs flex-1 uppercase">Withdraw Profit</button>
+                <div class="flex flex-col sm:flex-row justify-center max-w-xl mx-auto gap-4 px-4">
+                    <button onclick="handleClaim()" class="btn-outline-pro px-10 py-4 rounded-xl text-xs orbitron border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 flex-1 uppercase">Withdraw Profit</button>
+                    <button onclick="handleReinvestRewards()" class="btn-gold-pro px-10 py-4 rounded-xl orbitron text-xs flex-1 uppercase">Reinvest Rewards</button>
                 </div>
+                <p class="text-[10px] text-gray-500 mt-4 uppercase italic">Note: Reinvest Rewards pulls from Referral, Rank, and Daily ROI balance.</p>
             </div>
         </div>
 
@@ -190,11 +229,9 @@
     <script>
         lucide.createIcons();
 
-        // New function to set amount from quick buttons
         function setAmount(amt) {
             const input = document.getElementById('deposit-amount');
             input.value = amt;
-            // Optional: visual feedback
             input.classList.add('border-yellow-500');
             setTimeout(() => input.classList.remove('border-yellow-500'), 500);
         }
