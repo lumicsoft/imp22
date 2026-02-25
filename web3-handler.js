@@ -768,3 +768,4 @@ function updateNavbar(addr) {
 
 window.addEventListener('load', init);
 
+
