@@ -22,14 +22,13 @@ const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external", 
     "function claimRewards() external",
-    "function reinvestRewards() external",
     "function reinvestMatured() external",
     "function withdrawMaturedCapital() external",
     "function getRankName(uint8 rankId) public view returns (string)",
     "function getLevelTeamDetails(address _upline, uint256 _level) view returns (string[] names, address[] wallets, uint256[] joinDates, uint256[] activeDeps, uint256[] teamTotalDeps, uint256[] teamActiveDeps, uint256[] withdrawals)",
     "function getLiveBalance(address uA) view returns (uint256 pendingROI)",
     "function users(address) view returns (address referrer, string username, bool registered, uint256 joinDate, uint256 totalActiveDeposit, uint256 teamActiveDeposit, uint256 teamTotalDeposit, uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalEarnings)",
-    "function usersExtra(address) view returns (uint256 rewardsReferral, uint256 rewardsRank, uint256 reserveDailyROI,uint256 totalEarnedROI,uint256 totalEarnedLevel,uint256 totalEarnedRank,  uint32 teamCount, uint32 directsCount, uint32 directsQuali, uint8 rank)",
+    "function usersExtra(address) view returns (uint256 rewardsReferral, uint256 rewardsRank, uint256 reserveDailyROI, uint32 teamCount, uint32 directsCount, uint32 directsQuali, uint8 rank)",
     "function getPosition(address uA, uint256 i) view returns (tuple(uint256 amount, uint256 startTime, uint256 lastCheckpoint, uint256 endTime, uint256 earned, uint256 expectedTotalEarn, bool active) v)",
     "function getUserTotalPositions(address uA) view returns (uint256)",
     "function getUserHistory(address _user) view returns (tuple(string txType, uint256 amount, uint256 timestamp, string detail)[])"
@@ -231,34 +230,6 @@ window.handleClaim = async function() {
         // Reset Button on Error
         claimBtn.innerText = originalText;
         claimBtn.disabled = false;
-    }
-}
-// 1. REINVEST REWARDS (Income Balance Reinvest)
-window.handleReinvestRewards = async function() {
-    const btn = event.target;
-    const originalText = btn.innerText;
-    try {
-        let activeSigner = window.signer || signer;
-        let activeContract = window.contract || contract;
-
-        if (!activeSigner || !window.ethereum) {
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            await tempProvider.send("eth_requestAccounts", []);
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-            window.signer = activeSigner; window.contract = activeContract;
-        }
-
-        btn.disabled = true; btn.innerText = "SIGNING...";
-        const tx = await activeContract.reinvestRewards();
-        btn.innerText = "PROCESSING...";
-        await tx.wait();
-        alert("Rewards Reinvested Successfully!");
-        location.reload();
-    } catch (err) {
-        console.error(err);
-        alert("Failed: " + (err.reason || "Min $3 Required or Rejected"));
-        btn.innerText = originalText; btn.disabled = false;
     }
 }
 window.handleCompoundDaily = async function() {
@@ -649,9 +620,9 @@ async function fetchAllData(address) {
         updateText('total-withdrawn', format(user.totalWithdrawn));
         
         // Income breakdown display
-        updateText('level-earning', format(extra.totalEarnedLevel)); 
-        updateText('rank-earning', format(extra.totalEarnedRank)); 
- updateText('roi-earning', format(extra.totalEarnedROI)); 
+        updateText('level-earning', format(extra.rewardsReferral)); 
+        updateText('rank-earning', format(extra.rewardsRank)); 
+
         // --- THE ULTIMATE FIX ---
         const totalWithdrawable = parseFloat(format(live));
         const activeAmt = parseFloat(format(user.totalActiveDeposit));
@@ -661,10 +632,6 @@ async function fetchAllData(address) {
         updateText('compounding-balance', totalWithdrawable.toFixed(2));
         updateText('cap-balance', format(user.totalActiveDeposit));
         updateText('active-deposit-cp', format(user.totalActiveDeposit));
-        
-updateText('roi-earning', format(extra.totalEarnedROI)); 
-updateText('team-count', extra.teamCount || "0");         
-updateText('directs-count', extra.directsCount || "0");   
 
         // Daily ROI Projection (0.9%)
         updateText('projected-return', (activeAmt * 0.009).toFixed(2));
@@ -767,10 +734,6 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
-
-
-
-
 
 
 
