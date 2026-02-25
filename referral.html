@@ -51,7 +51,7 @@
                     <div class="flex items-center gap-3 bg-black/50 p-2 px-4 rounded-xl border border-white/10">
                         <span class="label-text">Select Level:</span>
                         <select id="levelSelect" onchange="loadLevelData(this.value)" class="bg-transparent text-yellow-500 font-black orbitron text-xs outline-none cursor-pointer">
-                            <script>for(let i=1; i<=25; i++) document.write(`<option value="${i}">Level ${i}</option>`);</script>
+                            <script>for(let i=1; i<=15; i++) document.write(`<option value="${i}">Level ${i}</option>`);</script>
                         </select>
                     </div>
                 </div>
@@ -145,4 +145,5 @@
         window.addEventListener('load', () => setTimeout(loadReferralData, 1200));
     </script>
 </body>
+
 </html>
