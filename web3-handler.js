@@ -661,6 +661,10 @@ async function fetchAllData(address) {
         updateText('compounding-balance', totalWithdrawable.toFixed(2));
         updateText('cap-balance', format(user.totalActiveDeposit));
         updateText('active-deposit-cp', format(user.totalActiveDeposit));
+        
+updateText('roi-earning', format(extra.totalEarnedROI)); 
+updateText('team-count', extra.teamCount || "0");         
+updateText('directs-count', extra.directsCount || "0");   
 
         // Daily ROI Projection (0.9%)
         updateText('projected-return', (activeAmt * 0.009).toFixed(2));
@@ -763,6 +767,7 @@ function updateNavbar(addr) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
